@@ -6,6 +6,9 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,8 +17,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.tomcurran.welfare.data.SyncWorker
 import org.tomcurran.welfare.data.WeightRepository
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 data class WeightEntry(
     val weight: Double,
@@ -37,6 +42,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY,
+        HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND,
     )
 
     private val _permissionDenied = MutableStateFlow(false)
@@ -64,6 +70,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
             if (requiredPermissions.all { it in granted }) {
                 _permissionDenied.value = false
                 repository.sync()
+                scheduleBackgroundSync()
             } else {
                 _permissionDenied.value = true
             }
@@ -74,8 +81,15 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         if (requiredPermissions.all { it in granted }) {
             _permissionDenied.value = false
             viewModelScope.launch { repository.sync() }
+            scheduleBackgroundSync()
         } else {
             _permissionDenied.value = true
         }
+    }
+
+    private fun scheduleBackgroundSync() {
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(getApplication())
+            .enqueueUniquePeriodicWork("weight_sync", ExistingPeriodicWorkPolicy.UPDATE, request)
     }
 }
