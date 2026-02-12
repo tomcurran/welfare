@@ -20,6 +20,8 @@ import kotlinx.coroutines.launch
 import org.tomcurran.welfare.data.SyncWorker
 import org.tomcurran.welfare.data.WeightRepository
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 
 data class WeightEntry(
@@ -55,6 +57,9 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
                         weight = entity.weight,
                         time = Instant.ofEpochMilli(entity.time),
                     )
+                }.distinctBy { entry ->
+                    val day = LocalDate.ofInstant(entry.time, ZoneId.systemDefault())
+                    day to entry.weight
                 }
             )
         }
