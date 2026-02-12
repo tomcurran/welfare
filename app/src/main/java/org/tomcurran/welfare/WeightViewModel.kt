@@ -36,6 +36,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
 
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
+        HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY,
     )
 
     private val _permissionDenied = MutableStateFlow(false)

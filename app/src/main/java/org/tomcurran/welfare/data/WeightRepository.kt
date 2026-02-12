@@ -38,21 +38,26 @@ class WeightRepository(
     private suspend fun initialLoad() {
         val now = Instant.now()
         val oneYearAgo = now.minus(365, ChronoUnit.DAYS)
-        val response = healthConnectClient.readRecords(
-            ReadRecordsRequest(
-                recordType = WeightRecord::class,
-                timeRangeFilter = TimeRangeFilter.between(oneYearAgo, now),
-            )
-        )
-        for (record in response.records) {
-            dao.upsert(
-                WeightEntity(
-                    healthConnectId = record.metadata.id,
-                    weight = record.weight.inKilograms,
-                    time = record.time.toEpochMilli(),
+        var pageToken: String? = null
+        do {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = WeightRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(oneYearAgo, now),
+                    pageToken = pageToken,
                 )
             )
-        }
+            for (record in response.records) {
+                dao.upsert(
+                    WeightEntity(
+                        healthConnectId = record.metadata.id,
+                        weight = record.weight.inKilograms,
+                        time = record.time.toEpochMilli(),
+                    )
+                )
+            }
+            pageToken = response.pageToken
+        } while (pageToken != null)
         val newToken = healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )
