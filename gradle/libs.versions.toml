@@ -11,7 +11,7 @@ composeBom = "2026.02.00"
 healthConnect = "1.1.0"
 ksp = "2.3.4"
 room = "2.8.4"
-workManager = "2.10.1"
+workManager = "2.11.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
