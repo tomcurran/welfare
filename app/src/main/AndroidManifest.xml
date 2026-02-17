@@ -27,7 +27,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".PermissionsRationaleActivity"
+            android:name=".ui.PermissionsRationaleActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />

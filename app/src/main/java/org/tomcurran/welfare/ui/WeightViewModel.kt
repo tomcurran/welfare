@@ -1,4 +1,4 @@
-package org.tomcurran.welfare
+package org.tomcurran.welfare.ui
 
 import android.app.Application
 import android.content.Context
