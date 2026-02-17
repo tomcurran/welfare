@@ -138,6 +138,12 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun resetSync() {
+        viewModelScope.launch {
+            repository.resetSync()
+        }
+    }
+
     companion object {
         private val TAG: String = WeightViewModel::class.java.simpleName
     }

@@ -8,5 +8,6 @@
     <string name="grant_permission">Grant permission</string>
     <string name="no_weight_records">No weight records found</string>
     <string name="error_format">Error: %1$s</string>
+    <string name="reset_sync">Reset sync</string>
     <string name="permissions_rationale">Welfare reads your weight records from Health Connect to display your weight history. No data is shared with third parties.</string>
 </resources>
