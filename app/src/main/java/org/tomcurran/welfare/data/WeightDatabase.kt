@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
-import androidx.core.content.edit
+import kotlinx.coroutines.runBlocking
 
 @Database(entities = [WeightEntity::class], version = 2, exportSchema = false)
 abstract class WeightDatabase : RoomDatabase() {
@@ -31,7 +31,9 @@ abstract class WeightDatabase : RoomDatabase() {
             ).fallbackToDestructiveMigration(dropAllTables = true)
                 .addCallback(object : Callback() {
                     override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
-                        WeightRepository.getInstance(appContext).resetSync()
+                        runBlocking {
+                            WeightRepository.getInstance(appContext).resetSync()
+                        }
                     }
                 })
                 .build()

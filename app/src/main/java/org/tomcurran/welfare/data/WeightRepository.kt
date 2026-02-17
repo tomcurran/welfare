@@ -1,9 +1,13 @@
 package org.tomcurran.welfare.data
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
-import androidx.core.content.edit
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
@@ -16,23 +20,35 @@ import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
+private val Context.dataStore by preferencesDataStore(name = "welfare_prefs")
+
 class WeightRepository(
     private val healthConnectClient: HealthConnectClient,
     private val dao: WeightDao,
-    private val prefs: SharedPreferences,
+    private val dataStore: DataStore<Preferences>,
 ) {
     fun entries(): Flow<List<WeightEntity>> = dao.getAllByTimeDesc()
 
-    fun resetSync() {
-        prefs.edit { remove(KEY_CHANGES_TOKEN) }
+    val syncEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SYNC_ENABLED] ?: true
+    }
+
+    suspend fun setSyncEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_SYNC_ENABLED] = enabled }
+    }
+
+    suspend fun resetSync() {
+        dataStore.edit { it.remove(KEY_CHANGES_TOKEN) }
     }
 
     suspend fun sync() {
-        val token = prefs.getString(KEY_CHANGES_TOKEN, null)
+        val token = dataStore.data.first()[KEY_CHANGES_TOKEN]
         if (token == null) {
             initialLoad()
         } else {
@@ -70,7 +86,7 @@ class WeightRepository(
         val newToken = healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )
-        prefs.edit { putString(KEY_CHANGES_TOKEN, newToken) }
+        dataStore.edit { it[KEY_CHANGES_TOKEN] = newToken }
     }
 
     private suspend fun incrementalSync(token: String) {
@@ -102,13 +118,13 @@ class WeightRepository(
             }
             currentToken = changesResponse.nextChangesToken
         } while (changesResponse.hasMore)
-        prefs.edit { putString(KEY_CHANGES_TOKEN, currentToken) }
+        dataStore.edit { it[KEY_CHANGES_TOKEN] = currentToken }
     }
 
     companion object {
         private val TAG: String = WeightRepository::class.java.simpleName
-        internal const val PREFS_NAME = "welfare_prefs"
-        internal const val KEY_CHANGES_TOKEN = "health_connect_changes_token"
+        private val KEY_CHANGES_TOKEN = stringPreferencesKey("health_connect_changes_token")
+        private val KEY_SYNC_ENABLED = booleanPreferencesKey("sync_enabled")
         private const val INITIAL_LOAD_DAYS = 365L
         private const val WORK_NAME = "weight_sync"
 
@@ -125,7 +141,7 @@ class WeightRepository(
             return WeightRepository(
                 healthConnectClient = HealthConnectClient.getOrCreate(appContext),
                 dao = WeightDatabase.getInstance(appContext).weightDao(),
-                prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
+                dataStore = appContext.dataStore,
             )
         }
 

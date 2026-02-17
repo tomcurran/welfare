@@ -1,19 +1,18 @@
 package org.tomcurran.welfare.ui
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
-import androidx.core.content.edit
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -45,10 +44,9 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         null
     }
     private val repository = WeightRepository.getInstance(application)
-    private val prefs = application.getSharedPreferences(WeightRepository.PREFS_NAME, Context.MODE_PRIVATE)
 
-    private val _syncEnabled = MutableStateFlow(prefs.getBoolean(KEY_SYNC_ENABLED, true))
-    val syncEnabled: StateFlow<Boolean> = _syncEnabled
+    val syncEnabled: StateFlow<Boolean> = repository.syncEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
@@ -123,22 +121,24 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setSyncEnabled(enabled: Boolean) {
-        prefs.edit { putBoolean(KEY_SYNC_ENABLED, enabled) }
-        _syncEnabled.value = enabled
-        if (enabled) {
-            scheduleBackgroundSync()
-        } else {
-            WeightRepository.cancelBackgroundSync(getApplication())
+        viewModelScope.launch {
+            repository.setSyncEnabled(enabled)
+            if (enabled) {
+                scheduleBackgroundSync()
+            } else {
+                WeightRepository.cancelBackgroundSync(getApplication())
+            }
         }
     }
 
     private fun scheduleBackgroundSync() {
-        if (!_syncEnabled.value) return
-        WeightRepository.scheduleBackgroundSync(getApplication())
+        viewModelScope.launch {
+            if (!repository.syncEnabled.first()) return@launch
+            WeightRepository.scheduleBackgroundSync(getApplication())
+        }
     }
 
     companion object {
         private val TAG: String = WeightViewModel::class.java.simpleName
-        private const val KEY_SYNC_ENABLED = "sync_enabled"
     }
 }
