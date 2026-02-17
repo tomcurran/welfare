@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +37,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import org.tomcurran.welfare.ui.theme.WelfareTheme
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -46,7 +50,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             WelfareTheme {
-                WeightScreen()
+                val navController = rememberNavController()
+                val viewModel: WeightViewModel = viewModel()
+
+                NavHost(navController = navController, startDestination = "weight") {
+                    composable("weight") {
+                        WeightScreen(
+                            viewModel = viewModel,
+                            onNavigateToSettings = { navController.navigate("settings") },
+                        )
+                    }
+                    composable("settings") {
+                        SettingsScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                        )
+                    }
+                }
             }
         }
     }
@@ -56,6 +76,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WeightScreen(
     viewModel: WeightViewModel = viewModel(),
+    onNavigateToSettings: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -75,11 +96,19 @@ fun WeightScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
-                    IconButton(onClick = { viewModel.checkPermissionsAndLoad() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh",
-                        )
+                    if (uiState is WeightUiState.Success) {
+                        IconButton(onClick = { viewModel.checkPermissionsAndLoad() }) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh",
+                            )
+                        }
+                        IconButton(onClick = onNavigateToSettings) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                            )
+                        }
                     }
                 },
             )

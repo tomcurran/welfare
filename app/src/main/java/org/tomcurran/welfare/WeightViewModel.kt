@@ -1,6 +1,7 @@
 package org.tomcurran.welfare
 
 import android.app.Application
+import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
@@ -23,6 +24,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
+import androidx.core.content.edit
 
 data class WeightEntry(
     val weight: Double,
@@ -40,6 +42,10 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
 
     private val healthConnectClient = HealthConnectClient.getOrCreate(application)
     private val repository = WeightRepository.create(application)
+    private val prefs = application.getSharedPreferences("welfare_prefs", Context.MODE_PRIVATE)
+
+    private val _syncEnabled = MutableStateFlow(prefs.getBoolean("sync_enabled", true))
+    val syncEnabled: StateFlow<Boolean> = _syncEnabled
 
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
@@ -92,7 +98,18 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun setSyncEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean("sync_enabled", enabled) }
+        _syncEnabled.value = enabled
+        if (enabled) {
+            scheduleBackgroundSync()
+        } else {
+            WorkManager.getInstance(getApplication()).cancelUniqueWork("weight_sync")
+        }
+    }
+
     private fun scheduleBackgroundSync() {
+        if (!_syncEnabled.value) return
         val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()
         WorkManager.getInstance(getApplication())
             .enqueueUniquePeriodicWork("weight_sync", ExistingPeriodicWorkPolicy.UPDATE, request)
