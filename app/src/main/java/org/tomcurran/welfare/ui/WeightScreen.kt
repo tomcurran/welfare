@@ -25,20 +25,22 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.tomcurran.welfare.R
+import org.tomcurran.welfare.ui.theme.WelfareTheme
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 private val dateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeightScreen(
     viewModel: WeightViewModel,
@@ -56,6 +58,22 @@ fun WeightScreen(
         viewModel.checkPermissionsAndLoad()
     }
 
+    WeightScreenContent(
+        uiState = uiState,
+        onRefresh = { viewModel.checkPermissionsAndLoad() },
+        onNavigateToSettings = onNavigateToSettings,
+        onRequestPermissions = { permissionLauncher.launch(viewModel.requiredPermissions) },
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WeightScreenContent(
+    uiState: WeightUiState,
+    onRefresh: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onRequestPermissions: () -> Unit = {},
+) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -63,7 +81,7 @@ fun WeightScreen(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     if (uiState is WeightUiState.Success) {
-                        IconButton(onClick = { viewModel.checkPermissionsAndLoad() }) {
+                        IconButton(onClick = onRefresh) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = stringResource(R.string.refresh),
@@ -110,9 +128,7 @@ fun WeightScreen(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(stringResource(R.string.weight_permission_required))
-                        Button(onClick = {
-                            permissionLauncher.launch(viewModel.requiredPermissions)
-                        }) {
+                        Button(onClick = onRequestPermissions) {
                             Text(stringResource(R.string.grant_permission))
                         }
                     }
@@ -172,5 +188,59 @@ fun WeightList(entries: List<WeightEntry>, modifier: Modifier = Modifier) {
             }
             HorizontalDivider()
         }
+    }
+}
+
+private val previewEntries = listOf(
+    WeightEntry(id = "1", weight = 82.5, time = Instant.parse("2025-02-17T08:30:00Z")),
+    WeightEntry(id = "2", weight = 82.1, time = Instant.parse("2025-02-16T07:45:00Z")),
+    WeightEntry(id = "3", weight = 83.0, time = Instant.parse("2025-02-15T09:00:00Z")),
+)
+
+@Preview(showBackground = true)
+@Composable
+fun WeightScreenLoadingPreview() {
+    WelfareTheme {
+        WeightScreenContent(uiState = WeightUiState.Loading)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeightScreenSuccessPreview() {
+    WelfareTheme {
+        WeightScreenContent(uiState = WeightUiState.Success(previewEntries))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeightScreenEmptyPreview() {
+    WelfareTheme {
+        WeightScreenContent(uiState = WeightUiState.Success(emptyList()))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeightScreenPermissionPreview() {
+    WelfareTheme {
+        WeightScreenContent(uiState = WeightUiState.PermissionNotGranted)
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeightScreenErrorPreview() {
+    WelfareTheme {
+        WeightScreenContent(uiState = WeightUiState.Error("Something went wrong"))
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun WeightScreenHealthConnectUnavailablePreview() {
+    WelfareTheme {
+        WeightScreenContent(uiState = WeightUiState.HealthConnectUnavailable)
     }
 }

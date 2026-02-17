@@ -21,12 +21,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.tomcurran.welfare.BuildConfig
 import org.tomcurran.welfare.R
+import org.tomcurran.welfare.ui.theme.WelfareTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: WeightViewModel,
@@ -34,6 +35,22 @@ fun SettingsScreen(
 ) {
     val syncEnabled by viewModel.syncEnabled.collectAsStateWithLifecycle()
 
+    SettingsScreenContent(
+        onBack = onBack,
+        syncEnabled = syncEnabled,
+        onCheckedChange = { viewModel.setBackgroundSyncEnabled(it) },
+        onResetSync = { viewModel.resetSync() }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreenContent(
+    onBack: () -> Unit,
+    syncEnabled: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onResetSync: () -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -53,12 +70,12 @@ fun SettingsScreen(
             SwitchPreference(
                 title = stringResource(R.string.background_sync),
                 checked = syncEnabled,
-                onCheckedChange = { viewModel.setBackgroundSyncEnabled(it) },
+                onCheckedChange = onCheckedChange,
             )
             if (BuildConfig.DEBUG) {
                 ClickablePreference(
                     title = stringResource(R.string.reset_sync),
-                    onClick = { viewModel.resetSync() },
+                    onClick = onResetSync,
                 )
             }
         }
@@ -107,6 +124,32 @@ private fun ClickablePreference(
         Text(
             text = title,
             style = MaterialTheme.typography.bodyLarge,
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenSyncEnabledPreview() {
+    WelfareTheme {
+        SettingsScreenContent(
+            onBack = {},
+            syncEnabled = true,
+            onCheckedChange = {},
+            onResetSync = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenSyncDisabledPreview() {
+    WelfareTheme {
+        SettingsScreenContent(
+            onBack = {},
+            syncEnabled = false,
+            onCheckedChange = {},
+            onResetSync = {}
         )
     }
 }
