@@ -45,7 +45,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     }
     private val repository = WeightRepository.getInstance(application)
 
-    val syncEnabled: StateFlow<Boolean> = repository.syncEnabled
+    val syncEnabled: StateFlow<Boolean> = repository.backgroundSyncEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val requiredPermissions = setOf(
@@ -120,9 +120,9 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun setSyncEnabled(enabled: Boolean) {
+    fun setBackgroundSyncEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            repository.setSyncEnabled(enabled)
+            repository.setBackgroundSyncEnabled(enabled)
             if (enabled) {
                 scheduleBackgroundSync()
             } else {
@@ -133,7 +133,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun scheduleBackgroundSync() {
         viewModelScope.launch {
-            if (!repository.syncEnabled.first()) return@launch
+            if (!repository.backgroundSyncEnabled.first()) return@launch
             WeightRepository.scheduleBackgroundSync(getApplication())
         }
     }

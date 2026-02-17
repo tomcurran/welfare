@@ -57,7 +57,7 @@ fun SettingsScreen(
             )
             Switch(
                 checked = syncEnabled,
-                onCheckedChange = { viewModel.setSyncEnabled(it) },
+                onCheckedChange = { viewModel.setBackgroundSyncEnabled(it) },
             )
         }
     }

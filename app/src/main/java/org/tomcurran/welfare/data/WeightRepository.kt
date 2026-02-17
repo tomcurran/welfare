@@ -35,42 +35,42 @@ class WeightRepository(
 ) {
     fun entries(): Flow<List<WeightEntity>> = dao.getAllByTimeDesc()
 
-    val syncEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
-        prefs[KEY_SYNC_ENABLED] ?: true
+    val backgroundSyncEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_BACKGROUND_SYNC_ENABLED] ?: true
     }
 
-    suspend fun setSyncEnabled(enabled: Boolean) {
-        dataStore.edit { it[KEY_SYNC_ENABLED] = enabled }
+    suspend fun setBackgroundSyncEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_BACKGROUND_SYNC_ENABLED] = enabled }
     }
 
     suspend fun resetSync() {
-        dataStore.edit { it.remove(KEY_CHANGES_TOKEN) }
+        dataStore.edit { it.remove(KEY_HEALTH_CONNECT_CHANGES_TOKEN) }
     }
 
     suspend fun sync() {
-        val token = dataStore.data.first()[KEY_CHANGES_TOKEN]
+        val token = dataStore.data.first()[KEY_HEALTH_CONNECT_CHANGES_TOKEN]
         if (token == null) {
-            initialLoad()
+            fullSync()
         } else {
             try {
                 incrementalSync(token)
             } catch (e: Exception) {
-                Log.w(TAG, "Incremental sync failed, falling back to initial load", e)
+                Log.w(TAG, "Incremental sync failed, falling back to full sync", e)
                 resetSync()
-                initialLoad()
+                fullSync()
             }
         }
     }
 
-    private suspend fun initialLoad() {
+    private suspend fun fullSync() {
         val now = Instant.now()
-        val oneYearAgo = now.minus(INITIAL_LOAD_DAYS, ChronoUnit.DAYS)
+        val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
         var pageToken: String? = null
         do {
             val response = healthConnectClient.readRecords(
                 ReadRecordsRequest(
                     recordType = WeightRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(oneYearAgo, now),
+                    timeRangeFilter = TimeRangeFilter.between(start, now),
                     pageToken = pageToken,
                 )
             )
@@ -86,7 +86,7 @@ class WeightRepository(
         val newToken = healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )
-        dataStore.edit { it[KEY_CHANGES_TOKEN] = newToken }
+        dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = newToken }
     }
 
     private suspend fun incrementalSync(token: String) {
@@ -118,15 +118,15 @@ class WeightRepository(
             }
             currentToken = changesResponse.nextChangesToken
         } while (changesResponse.hasMore)
-        dataStore.edit { it[KEY_CHANGES_TOKEN] = currentToken }
+        dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = currentToken }
     }
 
     companion object {
         private val TAG: String = WeightRepository::class.java.simpleName
-        private val KEY_CHANGES_TOKEN = stringPreferencesKey("health_connect_changes_token")
-        private val KEY_SYNC_ENABLED = booleanPreferencesKey("sync_enabled")
-        private const val INITIAL_LOAD_DAYS = 365L
-        private const val WORK_NAME = "weight_sync"
+        private val KEY_HEALTH_CONNECT_CHANGES_TOKEN = stringPreferencesKey("health_connect_changes_token")
+        private val KEY_BACKGROUND_SYNC_ENABLED = booleanPreferencesKey("background_sync_enabled")
+        private const val FULL_SYNC_DAYS: Long = 365 * 5
+        private const val WORK_NAME_BACKGROUND_SYNC = "background_sync"
 
         @Volatile
         private var INSTANCE: WeightRepository? = null
@@ -150,11 +150,11 @@ class WeightRepository(
                 .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
                 .build()
             WorkManager.getInstance(context)
-                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+                .enqueueUniquePeriodicWork(WORK_NAME_BACKGROUND_SYNC, ExistingPeriodicWorkPolicy.UPDATE, request)
         }
 
         fun cancelBackgroundSync(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME_BACKGROUND_SYNC)
         }
     }
 }
