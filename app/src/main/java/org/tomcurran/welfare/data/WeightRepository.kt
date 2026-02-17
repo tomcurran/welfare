@@ -66,6 +66,7 @@ class WeightRepository(
         val now = Instant.now()
         val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
         var pageToken: String? = null
+        dao.deleteAll()
         do {
             val response = healthConnectClient.readRecords(
                 ReadRecordsRequest(

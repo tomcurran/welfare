@@ -16,6 +16,9 @@ interface WeightDao {
     @Upsert
     suspend fun upsertAll(entities: List<WeightEntity>)
 
+    @Query("DELETE FROM weight")
+    suspend fun deleteAll()
+
     @Query("DELETE FROM weight WHERE healthConnectId = :id")
     suspend fun deleteByHealthConnectId(id: String)
 }
