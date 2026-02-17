@@ -2,6 +2,7 @@ package org.tomcurran.welfare.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.core.content.edit
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
@@ -11,6 +12,7 @@ import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.flow.Flow
+import org.tomcurran.welfare.ui.WeightViewModel
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 
@@ -28,7 +30,8 @@ class WeightRepository(
         } else {
             try {
                 incrementalSync(token)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "Incremental sync failed, falling back to initial load", e)
                 prefs.edit { remove(KEY_CHANGES_TOKEN) }
                 initialLoad()
             }
@@ -47,15 +50,13 @@ class WeightRepository(
                     pageToken = pageToken,
                 )
             )
-            for (record in response.records) {
-                dao.upsert(
-                    WeightEntity(
-                        healthConnectId = record.metadata.id,
-                        weight = record.weight.inKilograms,
-                        time = record.time.toEpochMilli(),
-                    )
+            dao.upsertAll(response.records.map { record ->
+                WeightEntity(
+                    healthConnectId = record.metadata.id,
+                    weight = record.weight.inKilograms,
+                    time = record.time.toEpochMilli(),
                 )
-            }
+            })
             pageToken = response.pageToken
         } while (pageToken != null)
         val newToken = healthConnectClient.getChangesToken(
@@ -68,12 +69,13 @@ class WeightRepository(
         var currentToken = token
         do {
             val changesResponse = healthConnectClient.getChanges(currentToken)
+            val upserts = mutableListOf<WeightEntity>()
             for (change in changesResponse.changes) {
                 when (change) {
                     is UpsertionChange -> {
                         val record = change.record
                         if (record is WeightRecord) {
-                            dao.upsert(
+                            upserts.add(
                                 WeightEntity(
                                     healthConnectId = record.metadata.id,
                                     weight = record.weight.inKilograms,
@@ -87,20 +89,33 @@ class WeightRepository(
                     }
                 }
             }
+            if (upserts.isNotEmpty()) {
+                dao.upsertAll(upserts)
+            }
             currentToken = changesResponse.nextChangesToken
         } while (changesResponse.hasMore)
         prefs.edit { putString(KEY_CHANGES_TOKEN, currentToken) }
     }
 
     companion object {
+        private val TAG: String = WeightRepository::class.java.simpleName
+        private const val PREFS_NAME = "welfare_prefs"
         private const val KEY_CHANGES_TOKEN = "health_connect_changes_token"
 
-        fun create(context: Context): WeightRepository {
+        @Volatile
+        private var INSTANCE: WeightRepository? = null
+
+        fun getInstance(context: Context): WeightRepository =
+            INSTANCE ?: synchronized(this) {
+                INSTANCE ?: create(context).also { INSTANCE = it }
+            }
+
+        private fun create(context: Context): WeightRepository {
             val appContext = context.applicationContext
             return WeightRepository(
                 healthConnectClient = HealthConnectClient.getOrCreate(appContext),
                 dao = WeightDatabase.getInstance(appContext).weightDao(),
-                prefs = appContext.getSharedPreferences("weight_sync", Context.MODE_PRIVATE),
+                prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
             )
         }
     }

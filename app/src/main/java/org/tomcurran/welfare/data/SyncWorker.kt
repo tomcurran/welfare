@@ -1,7 +1,7 @@
 package org.tomcurran.welfare.data
 
 import android.content.Context
-import android.util.Log.d
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
@@ -10,17 +10,19 @@ class SyncWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
-    companion object {
-        private val TAG: String = SyncWorker::class.java.simpleName
-    }
-
     override suspend fun doWork(): Result {
         return try {
-            d(TAG, "${SyncWorker::doWork} syncing weight data")
-            WeightRepository.create(applicationContext).sync()
+            Log.d(TAG, "Weight sync starting")
+            WeightRepository.getInstance(applicationContext).sync()
+            Log.d(TAG, "Weight sync completed")
             Result.success()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.e(TAG, "Weight sync failed", e)
             Result.retry()
         }
+    }
+
+    companion object {
+        private val TAG: String = SyncWorker::class.java.simpleName
     }
 }

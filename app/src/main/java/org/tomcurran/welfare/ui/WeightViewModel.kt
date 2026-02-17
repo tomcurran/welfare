@@ -2,11 +2,14 @@ package org.tomcurran.welfare.ui
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
+import androidx.core.content.edit
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.BackoffPolicy
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
@@ -24,7 +27,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
-import androidx.core.content.edit
 
 data class WeightEntry(
     val weight: Double,
@@ -34,17 +36,23 @@ data class WeightEntry(
 sealed interface WeightUiState {
     data object Loading : WeightUiState
     data object PermissionNotGranted : WeightUiState
+    data object HealthConnectUnavailable : WeightUiState
     data class Success(val entries: List<WeightEntry>) : WeightUiState
     data class Error(val message: String) : WeightUiState
 }
 
 class WeightViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val healthConnectClient = HealthConnectClient.getOrCreate(application)
-    private val repository = WeightRepository.create(application)
-    private val prefs = application.getSharedPreferences("welfare_prefs", Context.MODE_PRIVATE)
+    private val healthConnectClient = try {
+        HealthConnectClient.getOrCreate(application)
+    } catch (e: Exception) {
+        Log.e(TAG, "Health Connect not available", e)
+        null
+    }
+    private val repository = WeightRepository.getInstance(application)
+    private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    private val _syncEnabled = MutableStateFlow(prefs.getBoolean("sync_enabled", true))
+    private val _syncEnabled = MutableStateFlow(prefs.getBoolean(KEY_SYNC_ENABLED, true))
     val syncEnabled: StateFlow<Boolean> = _syncEnabled
 
     val requiredPermissions = setOf(
@@ -54,6 +62,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     )
 
     private val _permissionDenied = MutableStateFlow(false)
+    private val _healthConnectUnavailable = MutableStateFlow(healthConnectClient == null)
 
     private val dataState = repository.entries()
         .map<_, WeightUiState> { entities ->
@@ -71,13 +80,22 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         }
         .catch { e -> emit(WeightUiState.Error(e.message ?: "Unknown error")) }
 
-    val uiState: StateFlow<WeightUiState> = combine(dataState, _permissionDenied) { data, denied ->
-        if (denied) WeightUiState.PermissionNotGranted else data
+    val uiState: StateFlow<WeightUiState> = combine(
+        dataState,
+        _permissionDenied,
+        _healthConnectUnavailable,
+    ) { data, denied, unavailable ->
+        when {
+            unavailable -> WeightUiState.HealthConnectUnavailable
+            denied -> WeightUiState.PermissionNotGranted
+            else -> data
+        }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WeightUiState.Loading)
 
     fun checkPermissionsAndLoad() {
+        val client = healthConnectClient ?: return
         viewModelScope.launch {
-            val granted = healthConnectClient.permissionController.getGrantedPermissions()
+            val granted = client.permissionController.getGrantedPermissions()
             if (requiredPermissions.all { it in granted }) {
                 _permissionDenied.value = false
                 repository.sync()
@@ -99,19 +117,28 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     }
 
     fun setSyncEnabled(enabled: Boolean) {
-        prefs.edit { putBoolean("sync_enabled", enabled) }
+        prefs.edit { putBoolean(KEY_SYNC_ENABLED, enabled) }
         _syncEnabled.value = enabled
         if (enabled) {
             scheduleBackgroundSync()
         } else {
-            WorkManager.getInstance(getApplication()).cancelUniqueWork("weight_sync")
+            WorkManager.getInstance(getApplication()).cancelUniqueWork(WORK_NAME)
         }
     }
 
     private fun scheduleBackgroundSync() {
         if (!_syncEnabled.value) return
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES).build()
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+            .build()
         WorkManager.getInstance(getApplication())
-            .enqueueUniquePeriodicWork("weight_sync", ExistingPeriodicWorkPolicy.UPDATE, request)
+            .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+    }
+
+    companion object {
+        private val TAG: String = WeightViewModel::class.java.simpleName
+        private const val PREFS_NAME = "welfare_prefs"
+        private const val KEY_SYNC_ENABLED = "sync_enabled"
+        private const val WORK_NAME = "weight_sync"
     }
 }

@@ -32,15 +32,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.health.connect.client.PermissionController
-import androidx.lifecycle.viewmodel.compose.viewModel
 import org.tomcurran.welfare.R
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+private val dateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeightScreen(
-    viewModel: WeightViewModel = viewModel(),
+    viewModel: WeightViewModel,
     onNavigateToSettings: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -65,13 +66,13 @@ fun WeightScreen(
                         IconButton(onClick = { viewModel.checkPermissionsAndLoad() }) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh",
+                                contentDescription = stringResource(R.string.refresh),
                             )
                         }
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
-                                contentDescription = "Settings",
+                                contentDescription = stringResource(R.string.settings),
                             )
                         }
                     }
@@ -90,6 +91,16 @@ fun WeightScreen(
                     CircularProgressIndicator()
                 }
             }
+            is WeightUiState.HealthConnectUnavailable -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(stringResource(R.string.error_format, "Health Connect is not available"))
+                }
+            }
             is WeightUiState.PermissionNotGranted -> {
                 Box(
                     modifier = Modifier
@@ -98,11 +109,11 @@ fun WeightScreen(
                     contentAlignment = Alignment.Center,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Weight permission required")
+                        Text(stringResource(R.string.weight_permission_required))
                         Button(onClick = {
                             permissionLauncher.launch(viewModel.requiredPermissions)
                         }) {
-                            Text("Grant permission")
+                            Text(stringResource(R.string.grant_permission))
                         }
                     }
                 }
@@ -115,7 +126,7 @@ fun WeightScreen(
                             .padding(innerPadding),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text("No weight records found")
+                        Text(stringResource(R.string.no_weight_records))
                     }
                 } else {
                     WeightList(entries = state.entries, modifier = Modifier.padding(innerPadding))
@@ -128,7 +139,7 @@ fun WeightScreen(
                         .padding(innerPadding),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("Error: ${state.message}")
+                    Text(stringResource(R.string.error_format, state.message))
                 }
             }
         }
@@ -137,10 +148,11 @@ fun WeightScreen(
 
 @Composable
 fun WeightList(entries: List<WeightEntry>, modifier: Modifier = Modifier) {
-    val dateFormatter = DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm")
-
     LazyColumn(modifier = modifier.fillMaxSize()) {
-        items(entries) { entry ->
+        items(
+            items = entries,
+            key = { entry -> entry.time.toEpochMilli() },
+        ) { entry ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
