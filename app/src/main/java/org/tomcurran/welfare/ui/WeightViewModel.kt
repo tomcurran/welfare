@@ -45,7 +45,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     }
     private val repository = WeightRepository.getInstance(application)
 
-    val syncEnabled: StateFlow<Boolean> = repository.backgroundSyncEnabled
+    val backgroundSyncEnabled: StateFlow<Boolean> = repository.backgroundSyncEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     val requiredPermissions = setOf(

@@ -33,13 +33,13 @@ fun SettingsScreen(
     viewModel: WeightViewModel,
     onBack: () -> Unit,
 ) {
-    val syncEnabled by viewModel.syncEnabled.collectAsStateWithLifecycle()
+    val backgroundSyncEnabled by viewModel.backgroundSyncEnabled.collectAsStateWithLifecycle()
 
     SettingsScreenContent(
         onBack = onBack,
-        syncEnabled = syncEnabled,
-        onCheckedChange = { viewModel.setBackgroundSyncEnabled(it) },
-        onResetSync = { viewModel.resetSync() }
+        backgroundSyncEnabled = backgroundSyncEnabled,
+        onBackgroundSyncChange = { viewModel.setBackgroundSyncEnabled(it) },
+        onResetSyncClick = { viewModel.resetSync() }
     )
 }
 
@@ -47,9 +47,9 @@ fun SettingsScreen(
 @Composable
 fun SettingsScreenContent(
     onBack: () -> Unit,
-    syncEnabled: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    onResetSync: () -> Unit
+    backgroundSyncEnabled: Boolean,
+    onBackgroundSyncChange: (Boolean) -> Unit,
+    onResetSyncClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -69,13 +69,13 @@ fun SettingsScreenContent(
         Column(modifier = Modifier.padding(innerPadding)) {
             SwitchPreference(
                 title = stringResource(R.string.background_sync),
-                checked = syncEnabled,
-                onCheckedChange = onCheckedChange,
+                checked = backgroundSyncEnabled,
+                onCheckedChange = onBackgroundSyncChange,
             )
             if (BuildConfig.DEBUG) {
                 ClickablePreference(
                     title = stringResource(R.string.reset_sync),
-                    onClick = onResetSync,
+                    onClick = onResetSyncClick,
                 )
             }
         }
@@ -134,9 +134,9 @@ fun SettingsScreenSyncEnabledPreview() {
     WelfareTheme {
         SettingsScreenContent(
             onBack = {},
-            syncEnabled = true,
-            onCheckedChange = {},
-            onResetSync = {}
+            backgroundSyncEnabled = true,
+            onBackgroundSyncChange = {},
+            onResetSyncClick = {}
         )
     }
 }
@@ -147,9 +147,9 @@ fun SettingsScreenSyncDisabledPreview() {
     WelfareTheme {
         SettingsScreenContent(
             onBack = {},
-            syncEnabled = false,
-            onCheckedChange = {},
-            onResetSync = {}
+            backgroundSyncEnabled = false,
+            onBackgroundSyncChange = {},
+            onResetSyncClick = {}
         )
     }
 }
