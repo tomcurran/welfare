@@ -11,10 +11,14 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.request.ChangesTokenRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
+import androidx.work.BackoffPolicy
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import kotlinx.coroutines.flow.Flow
-import org.tomcurran.welfare.ui.WeightViewModel
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.TimeUnit
 
 class WeightRepository(
     private val healthConnectClient: HealthConnectClient,
@@ -22,6 +26,10 @@ class WeightRepository(
     private val prefs: SharedPreferences,
 ) {
     fun entries(): Flow<List<WeightEntity>> = dao.getAllByTimeDesc()
+
+    fun resetSync() {
+        prefs.edit { remove(KEY_CHANGES_TOKEN) }
+    }
 
     suspend fun sync() {
         val token = prefs.getString(KEY_CHANGES_TOKEN, null)
@@ -32,7 +40,7 @@ class WeightRepository(
                 incrementalSync(token)
             } catch (e: Exception) {
                 Log.w(TAG, "Incremental sync failed, falling back to initial load", e)
-                prefs.edit { remove(KEY_CHANGES_TOKEN) }
+                resetSync()
                 initialLoad()
             }
         }
@@ -40,7 +48,7 @@ class WeightRepository(
 
     private suspend fun initialLoad() {
         val now = Instant.now()
-        val oneYearAgo = now.minus(365, ChronoUnit.DAYS)
+        val oneYearAgo = now.minus(INITIAL_LOAD_DAYS, ChronoUnit.DAYS)
         var pageToken: String? = null
         do {
             val response = healthConnectClient.readRecords(
@@ -99,8 +107,10 @@ class WeightRepository(
 
     companion object {
         private val TAG: String = WeightRepository::class.java.simpleName
-        private const val PREFS_NAME = "welfare_prefs"
-        private const val KEY_CHANGES_TOKEN = "health_connect_changes_token"
+        internal const val PREFS_NAME = "welfare_prefs"
+        internal const val KEY_CHANGES_TOKEN = "health_connect_changes_token"
+        private const val INITIAL_LOAD_DAYS = 365L
+        private const val WORK_NAME = "weight_sync"
 
         @Volatile
         private var INSTANCE: WeightRepository? = null
@@ -117,6 +127,18 @@ class WeightRepository(
                 dao = WeightDatabase.getInstance(appContext).weightDao(),
                 prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
             )
+        }
+
+        fun scheduleBackgroundSync(context: Context) {
+            val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+                .build()
+            WorkManager.getInstance(context)
+                .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        }
+
+        fun cancelBackgroundSync(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
         }
     }
 }

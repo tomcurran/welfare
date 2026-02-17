@@ -13,7 +13,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +27,7 @@ fun SettingsScreen(
     viewModel: WeightViewModel,
     onBack: () -> Unit,
 ) {
-    val syncEnabled by viewModel.syncEnabled.collectAsState()
+    val syncEnabled by viewModel.syncEnabled.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {

@@ -4,7 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.core.content.edit
 
 @Database(entities = [WeightEntity::class], version = 2, exportSchema = false)
 abstract class WeightDatabase : RoomDatabase() {
@@ -18,11 +19,22 @@ abstract class WeightDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): WeightDatabase =
             INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
-                    context.applicationContext,
-                    WeightDatabase::class.java,
-                    DATABASE_NAME,
-                ).fallbackToDestructiveMigration(dropAllTables = true).build().also { INSTANCE = it }
+                INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
             }
+
+        private fun buildDatabase(context: Context): WeightDatabase {
+            val appContext = context.applicationContext
+            return Room.databaseBuilder(
+                appContext,
+                WeightDatabase::class.java,
+                DATABASE_NAME,
+            ).fallbackToDestructiveMigration(dropAllTables = true)
+                .addCallback(object : Callback() {
+                    override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                        WeightRepository.getInstance(appContext).resetSync()
+                    }
+                })
+                .build()
+        }
     }
 }

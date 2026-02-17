@@ -9,10 +9,6 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.work.BackoffPolicy
-import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.PeriodicWorkRequestBuilder
-import androidx.work.WorkManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,14 +17,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import org.tomcurran.welfare.data.SyncWorker
 import org.tomcurran.welfare.data.WeightRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.concurrent.TimeUnit
 
 data class WeightEntry(
+    val id: String,
     val weight: Double,
     val time: Instant,
 )
@@ -50,7 +45,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         null
     }
     private val repository = WeightRepository.getInstance(application)
-    private val prefs = application.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val prefs = application.getSharedPreferences(WeightRepository.PREFS_NAME, Context.MODE_PRIVATE)
 
     private val _syncEnabled = MutableStateFlow(prefs.getBoolean(KEY_SYNC_ENABLED, true))
     val syncEnabled: StateFlow<Boolean> = _syncEnabled
@@ -69,6 +64,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
             WeightUiState.Success(
                 entities.map { entity ->
                     WeightEntry(
+                        id = entity.healthConnectId,
                         weight = entity.weight,
                         time = Instant.ofEpochMilli(entity.time),
                     )
@@ -98,7 +94,11 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
             val granted = client.permissionController.getGrantedPermissions()
             if (requiredPermissions.all { it in granted }) {
                 _permissionDenied.value = false
-                repository.sync()
+                try {
+                    repository.sync()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Sync failed", e)
+                }
                 scheduleBackgroundSync()
             } else {
                 _permissionDenied.value = true
@@ -109,7 +109,13 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     fun onPermissionResult(granted: Set<String>) {
         if (requiredPermissions.all { it in granted }) {
             _permissionDenied.value = false
-            viewModelScope.launch { repository.sync() }
+            viewModelScope.launch {
+                try {
+                    repository.sync()
+                } catch (e: Exception) {
+                    Log.e(TAG, "Sync failed", e)
+                }
+            }
             scheduleBackgroundSync()
         } else {
             _permissionDenied.value = true
@@ -122,23 +128,17 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         if (enabled) {
             scheduleBackgroundSync()
         } else {
-            WorkManager.getInstance(getApplication()).cancelUniqueWork(WORK_NAME)
+            WeightRepository.cancelBackgroundSync(getApplication())
         }
     }
 
     private fun scheduleBackgroundSync() {
         if (!_syncEnabled.value) return
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
-            .build()
-        WorkManager.getInstance(getApplication())
-            .enqueueUniquePeriodicWork(WORK_NAME, ExistingPeriodicWorkPolicy.UPDATE, request)
+        WeightRepository.scheduleBackgroundSync(getApplication())
     }
 
     companion object {
         private val TAG: String = WeightViewModel::class.java.simpleName
-        private const val PREFS_NAME = "welfare_prefs"
         private const val KEY_SYNC_ENABLED = "sync_enabled"
-        private const val WORK_NAME = "weight_sync"
     }
 }

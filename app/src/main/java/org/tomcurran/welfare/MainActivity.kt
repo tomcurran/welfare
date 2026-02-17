@@ -8,10 +8,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import kotlinx.serialization.Serializable
 import org.tomcurran.welfare.ui.SettingsScreen
 import org.tomcurran.welfare.ui.WeightScreen
 import org.tomcurran.welfare.ui.WeightViewModel
 import org.tomcurran.welfare.ui.theme.WelfareTheme
+
+@Serializable object WeightRoute
+@Serializable object SettingsRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,14 +26,14 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val viewModel: WeightViewModel = viewModel()
 
-                NavHost(navController = navController, startDestination = "weight") {
-                    composable("weight") {
+                NavHost(navController = navController, startDestination = WeightRoute) {
+                    composable<WeightRoute> {
                         WeightScreen(
                             viewModel = viewModel,
-                            onNavigateToSettings = { navController.navigate("settings") },
+                            onNavigateToSettings = { navController.navigate(SettingsRoute) },
                         )
                     }
-                    composable("settings") {
+                    composable<SettingsRoute> {
                         SettingsScreen(
                             viewModel = viewModel,
                             onBack = { navController.popBackStack() },
