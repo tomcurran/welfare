@@ -45,9 +45,6 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     }
     private val repository = WeightRepository.getInstance(application)
 
-    val backgroundSyncEnabled: StateFlow<Boolean> = repository.backgroundSyncEnabled
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
-
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
         HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY,
@@ -120,27 +117,10 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    fun setBackgroundSyncEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            repository.setBackgroundSyncEnabled(enabled)
-            if (enabled) {
-                scheduleBackgroundSync()
-            } else {
-                WeightRepository.cancelBackgroundSync(getApplication())
-            }
-        }
-    }
-
     private fun scheduleBackgroundSync() {
         viewModelScope.launch {
             if (!repository.backgroundSyncEnabled.first()) return@launch
             WeightRepository.scheduleBackgroundSync(getApplication())
-        }
-    }
-
-    fun resetSync() {
-        viewModelScope.launch {
-            repository.resetSync()
         }
     }
 

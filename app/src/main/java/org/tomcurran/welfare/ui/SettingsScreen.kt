@@ -30,7 +30,7 @@ import org.tomcurran.welfare.ui.theme.WelfareTheme
 
 @Composable
 fun SettingsScreen(
-    viewModel: WeightViewModel,
+    viewModel: SettingsViewModel,
     onBack: () -> Unit,
 ) {
     val backgroundSyncEnabled by viewModel.backgroundSyncEnabled.collectAsStateWithLifecycle()

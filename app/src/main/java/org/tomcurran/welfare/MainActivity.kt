@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import kotlinx.serialization.Serializable
 import org.tomcurran.welfare.ui.SettingsScreen
+import org.tomcurran.welfare.ui.SettingsViewModel
 import org.tomcurran.welfare.ui.WeightScreen
 import org.tomcurran.welfare.ui.WeightViewModel
 import org.tomcurran.welfare.ui.theme.WelfareTheme
@@ -34,8 +35,9 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable<SettingsRoute> {
+                        val settingsViewModel: SettingsViewModel = viewModel()
                         SettingsScreen(
-                            viewModel = viewModel,
+                            viewModel = settingsViewModel,
                             onBack = { navController.popBackStack() },
                         )
                     }
