@@ -1,14 +1,16 @@
 package org.tomcurran.welfare.ui
 
-import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.SharingStarted
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -20,6 +22,7 @@ import org.tomcurran.welfare.data.WeightRepository
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import javax.inject.Inject
 
 data class WeightEntry(
     val id: String,
@@ -35,15 +38,12 @@ sealed interface WeightUiState {
     data class Error(val message: String) : WeightUiState
 }
 
-class WeightViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val healthConnectClient = try {
-        HealthConnectClient.getOrCreate(application)
-    } catch (e: Exception) {
-        Log.e(TAG, "Health Connect not available", e)
-        null
-    }
-    private val repository = WeightRepository.getInstance(application)
+@HiltViewModel
+class WeightViewModel @Inject constructor(
+    private val repository: WeightRepository,
+    private val healthConnectClient: HealthConnectClient?,
+    @param:ApplicationContext private val appContext: Context,
+) : ViewModel() {
 
     val requiredPermissions = setOf(
         HealthPermission.getReadPermission(WeightRecord::class),
@@ -120,7 +120,7 @@ class WeightViewModel(application: Application) : AndroidViewModel(application) 
     private fun scheduleBackgroundSync() {
         viewModelScope.launch {
             if (!repository.backgroundSyncEnabled.first()) return@launch
-            WeightRepository.scheduleBackgroundSync(getApplication())
+            WeightRepository.scheduleBackgroundSync(appContext)
         }
     }
 

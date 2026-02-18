@@ -4,20 +4,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
 import org.tomcurran.welfare.ui.SettingsScreen
-import org.tomcurran.welfare.ui.SettingsViewModel
 import org.tomcurran.welfare.ui.WeightScreen
-import org.tomcurran.welfare.ui.WeightViewModel
 import org.tomcurran.welfare.ui.theme.WelfareTheme
 
 @Serializable object WeightRoute
 @Serializable object SettingsRoute
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,19 +25,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             WelfareTheme {
                 val navController = rememberNavController()
-                val viewModel: WeightViewModel = viewModel()
 
                 NavHost(navController = navController, startDestination = WeightRoute) {
                     composable<WeightRoute> {
                         WeightScreen(
-                            viewModel = viewModel,
+                            viewModel = hiltViewModel(),
                             onNavigateToSettings = { navController.navigate(SettingsRoute) },
                         )
                     }
                     composable<SettingsRoute> {
-                        val settingsViewModel: SettingsViewModel = viewModel()
                         SettingsScreen(
-                            viewModel = settingsViewModel,
+                            viewModel = hiltViewModel(),
                             onBack = { navController.popBackStack() },
                         )
                     }

@@ -7,7 +7,6 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
@@ -25,11 +24,12 @@ import kotlinx.coroutines.flow.map
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+import javax.inject.Singleton
 
-private val Context.dataStore by preferencesDataStore(name = "welfare_prefs")
-
-class WeightRepository(
-    private val healthConnectClient: HealthConnectClient,
+@Singleton
+class WeightRepository @Inject constructor(
+    private val healthConnectClient: HealthConnectClient?,
     private val dao: WeightDao,
     private val dataStore: DataStore<Preferences>,
 ) {
@@ -63,6 +63,9 @@ class WeightRepository(
     }
 
     private suspend fun fullSync() {
+        if (healthConnectClient == null)
+            return
+
         val now = Instant.now()
         val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
         var pageToken: String? = null
@@ -91,6 +94,9 @@ class WeightRepository(
     }
 
     private suspend fun incrementalSync(token: String) {
+        if (healthConnectClient == null)
+            return
+
         var currentToken = token
         do {
             val changesResponse = healthConnectClient.getChanges(currentToken)
@@ -128,23 +134,6 @@ class WeightRepository(
         private val KEY_BACKGROUND_SYNC_ENABLED = booleanPreferencesKey("background_sync_enabled")
         private const val FULL_SYNC_DAYS: Long = 365 * 5
         private const val WORK_NAME_BACKGROUND_SYNC = "background_sync"
-
-        @Volatile
-        private var INSTANCE: WeightRepository? = null
-
-        fun getInstance(context: Context): WeightRepository =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: create(context).also { INSTANCE = it }
-            }
-
-        private fun create(context: Context): WeightRepository {
-            val appContext = context.applicationContext
-            return WeightRepository(
-                healthConnectClient = HealthConnectClient.getOrCreate(appContext),
-                dao = WeightDatabase.getInstance(appContext).weightDao(),
-                dataStore = appContext.dataStore,
-            )
-        }
 
         fun scheduleBackgroundSync(context: Context) {
             val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)

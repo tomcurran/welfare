@@ -14,29 +14,15 @@ abstract class WeightDatabase : RoomDatabase() {
     companion object {
         private const val DATABASE_NAME = "weight.db"
 
-        @Volatile
-        private var INSTANCE: WeightDatabase? = null
-
-        fun getInstance(context: Context): WeightDatabase =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: buildDatabase(context).also { INSTANCE = it }
-            }
-
-        private fun buildDatabase(context: Context): WeightDatabase {
-            val appContext = context.applicationContext
-            return Room.databaseBuilder(
-                appContext,
-                WeightDatabase::class.java,
-                DATABASE_NAME,
-            ).fallbackToDestructiveMigration(dropAllTables = true)
-                .addCallback(object : Callback() {
-                    override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
-                        runBlocking {
-                            WeightRepository.getInstance(appContext).resetSync()
-                        }
-                    }
-                })
-                .build()
-        }
+        fun provideWeightDatabase(
+            context: Context,
+            repository: dagger.Lazy<WeightRepository>,
+        ): WeightDatabase = Room.databaseBuilder(context, WeightDatabase::class.java, DATABASE_NAME)
+            .fallbackToDestructiveMigration(dropAllTables = true)
+            .addCallback(object : Callback() {
+                override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
+                    runBlocking { repository.get().resetSync() }
+                }
+            }).build()
     }
 }

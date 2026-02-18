@@ -1,17 +1,22 @@
 package org.tomcurran.welfare.ui
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import android.content.Context
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.tomcurran.welfare.data.WeightRepository
+import javax.inject.Inject
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val repository = WeightRepository.getInstance(application)
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    private val repository: WeightRepository,
+    @param:ApplicationContext private val appContext: Context,
+) : ViewModel() {
 
     val backgroundSyncEnabled: StateFlow<Boolean> = repository.backgroundSyncEnabled
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
@@ -20,9 +25,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             repository.setBackgroundSyncEnabled(enabled)
             if (enabled) {
-                WeightRepository.scheduleBackgroundSync(getApplication())
+                WeightRepository.scheduleBackgroundSync(appContext)
             } else {
-                WeightRepository.cancelBackgroundSync(getApplication())
+                WeightRepository.cancelBackgroundSync(appContext)
             }
         }
     }
