@@ -1,5 +1,9 @@
 package org.tomcurran.welfare.ui
 
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,16 +21,23 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.google.android.gms.auth.api.identity.Identity
+import kotlinx.coroutines.launch
 import org.tomcurran.welfare.BuildConfig
 import org.tomcurran.welfare.R
 import org.tomcurran.welfare.ui.theme.WelfareTheme
+
+private const val TAG = "SettingsScreen"
 
 @Composable
 fun SettingsScreen(
@@ -34,12 +45,66 @@ fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val backgroundSyncEnabled by viewModel.backgroundSyncEnabled.collectAsStateWithLifecycle()
+    val googleSheetsState by viewModel.googleSheetsState.collectAsStateWithLifecycle()
+
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        viewModel.checkGoogleSheetsAuth()
+    }
+
+    val authorizationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        try {
+            val authorizationResult = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data)
+            viewModel.onGoogleSheetsAuthorized(authorizationResult)
+        } catch (e: Exception) {
+            Log.e(TAG, "Google Sheets authorization failed", e)
+        }
+    }
+
+    fun connectGoogleSheets() {
+        scope.launch {
+            try {
+                val authorizationResult = viewModel.googleSheetsAuthorize()
+                if (authorizationResult.hasResolution()) {
+                    val pendingIntent = authorizationResult.pendingIntent!!
+                    authorizationLauncher.launch(
+                        IntentSenderRequest.Builder(pendingIntent).build()
+                    )
+                } else {
+                    viewModel.onGoogleSheetsAuthorized(authorizationResult)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Google Sheets authorization failed", e)
+            }
+        }
+    }
+
+    val googleSheetsSubtitle = when (googleSheetsState) {
+        is GoogleSheetsState.Checking -> stringResource(R.string.google_sheets_checking)
+        is GoogleSheetsState.Connected ->
+            stringResource(R.string.google_sheets_connected, (googleSheetsState as GoogleSheetsState.Connected).email)
+        is GoogleSheetsState.NotConnected ->
+            stringResource(R.string.google_sheets_not_connected)
+    }
 
     SettingsScreenContent(
         onBack = onBack,
         backgroundSyncEnabled = backgroundSyncEnabled,
         onBackgroundSyncChange = { viewModel.setBackgroundSyncEnabled(it) },
-        onResetSyncClick = { viewModel.resetSync() }
+        googleSheetsConnected = googleSheetsState is GoogleSheetsState.Connected,
+        googleSheetsSubtitle = googleSheetsSubtitle,
+        onGoogleSheetsChange = { enabled ->
+            if (enabled) {
+                connectGoogleSheets()
+            } else {
+                viewModel.disconnectGoogleSheets()
+            }
+        },
+        onResetSyncClick = { viewModel.resetSync() },
     )
 }
 
@@ -49,7 +114,10 @@ fun SettingsScreenContent(
     onBack: () -> Unit,
     backgroundSyncEnabled: Boolean,
     onBackgroundSyncChange: (Boolean) -> Unit,
-    onResetSyncClick: () -> Unit
+    googleSheetsConnected: Boolean,
+    googleSheetsSubtitle: String?,
+    onGoogleSheetsChange: (Boolean) -> Unit,
+    onResetSyncClick: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -72,6 +140,12 @@ fun SettingsScreenContent(
                 checked = backgroundSyncEnabled,
                 onCheckedChange = onBackgroundSyncChange,
             )
+            SwitchPreference(
+                title = stringResource(R.string.google_sheets),
+                subtitle = googleSheetsSubtitle,
+                checked = googleSheetsConnected,
+                onCheckedChange = onGoogleSheetsChange,
+            )
             if (BuildConfig.DEBUG) {
                 ClickablePreference(
                     title = stringResource(R.string.reset_sync),
@@ -85,6 +159,7 @@ fun SettingsScreenContent(
 @Composable
 private fun SwitchPreference(
     title: String,
+    subtitle: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
@@ -96,11 +171,19 @@ private fun SwitchPreference(
             .height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
         Switch(
             checked = checked,
             onCheckedChange = null,
@@ -130,26 +213,32 @@ private fun ClickablePreference(
 
 @Preview(showBackground = true)
 @Composable
-fun SettingsScreenSyncEnabledPreview() {
+fun SettingsScreenDisconnectedPreview() {
     WelfareTheme {
         SettingsScreenContent(
             onBack = {},
             backgroundSyncEnabled = true,
             onBackgroundSyncChange = {},
-            onResetSyncClick = {}
+            googleSheetsConnected = false,
+            googleSheetsSubtitle = "Not connected",
+            onGoogleSheetsChange = {},
+            onResetSyncClick = {},
         )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-fun SettingsScreenSyncDisabledPreview() {
+fun SettingsScreenConnectedPreview() {
     WelfareTheme {
         SettingsScreenContent(
             onBack = {},
-            backgroundSyncEnabled = false,
+            backgroundSyncEnabled = true,
             onBackgroundSyncChange = {},
-            onResetSyncClick = {}
+            googleSheetsConnected = true,
+            googleSheetsSubtitle = "Connected: user@gmail.com",
+            onGoogleSheetsChange = {},
+            onResetSyncClick = {},
         )
     }
 }
