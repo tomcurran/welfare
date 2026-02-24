@@ -32,6 +32,7 @@ class WeightRepository @Inject constructor(
     private val healthConnectClient: HealthConnectClient?,
     private val dao: WeightDao,
     private val dataStore: DataStore<Preferences>,
+    private val googleSheetsRepository: GoogleSheetsRepository,
 ) {
     fun entries(): Flow<List<WeightEntity>> = dao.getAllByTimeDesc()
 
@@ -59,6 +60,11 @@ class WeightRepository @Inject constructor(
                 resetSync()
                 fullSync()
             }
+        }
+        try {
+            googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
+        } catch (e: Exception) {
+            Log.w(TAG, "Google Sheets sync failed", e)
         }
     }
 

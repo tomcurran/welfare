@@ -13,5 +13,7 @@
     <string name="google_sheets_checking">Checking</string>
     <string name="google_sheets_connected">Connected: %1$s</string>
     <string name="google_sheets_not_connected">Not connected</string>
+    <string name="select_spreadsheet">Spreadsheet</string>
+    <string name="no_spreadsheet_selected">No spreadsheet selected</string>
     <string name="permissions_rationale">Welfare reads your weight records from Health Connect to display your weight history. No data is shared with third parties.</string>
 </resources>

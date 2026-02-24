@@ -35,6 +35,7 @@ import com.google.android.gms.auth.api.identity.Identity
 import kotlinx.coroutines.launch
 import org.tomcurran.welfare.BuildConfig
 import org.tomcurran.welfare.R
+import org.tomcurran.welfare.data.GoogleSheetsRepository
 import org.tomcurran.welfare.ui.theme.WelfareTheme
 
 private const val TAG = "SettingsScreen"
@@ -46,6 +47,7 @@ fun SettingsScreen(
 ) {
     val backgroundSyncEnabled by viewModel.backgroundSyncEnabled.collectAsStateWithLifecycle()
     val googleSheetsState by viewModel.googleSheetsState.collectAsStateWithLifecycle()
+    val selectedSpreadsheetName by viewModel.selectedSpreadsheetName.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -62,6 +64,14 @@ fun SettingsScreen(
             viewModel.onGoogleSheetsAuthorized(authorizationResult)
         } catch (e: Exception) {
             Log.e(TAG, "Google Sheets authorization failed", e)
+        }
+    }
+
+    val spreadsheetPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            viewModel.onSpreadsheetPicked(uri)
         }
     }
 
@@ -104,6 +114,12 @@ fun SettingsScreen(
                 viewModel.disconnectGoogleSheets()
             }
         },
+        selectedSpreadsheetName = selectedSpreadsheetName,
+        onSpreadsheetClick = {
+            spreadsheetPickerLauncher.launch(
+                arrayOf(GoogleSheetsRepository.MIME_TYPE_GOOGLE_SPREADSHEET)
+            )
+        },
         onResetSyncClick = { viewModel.resetSync() },
     )
 }
@@ -117,6 +133,8 @@ fun SettingsScreenContent(
     googleSheetsConnected: Boolean,
     googleSheetsSubtitle: String?,
     onGoogleSheetsChange: (Boolean) -> Unit,
+    selectedSpreadsheetName: String?,
+    onSpreadsheetClick: () -> Unit,
     onResetSyncClick: () -> Unit,
 ) {
     Scaffold(
@@ -146,6 +164,13 @@ fun SettingsScreenContent(
                 checked = googleSheetsConnected,
                 onCheckedChange = onGoogleSheetsChange,
             )
+            if (googleSheetsConnected) {
+                ClickablePreference(
+                    title = stringResource(R.string.select_spreadsheet),
+                    subtitle = selectedSpreadsheetName ?: stringResource(R.string.no_spreadsheet_selected),
+                    onClick = onSpreadsheetClick,
+                )
+            }
             if (BuildConfig.DEBUG) {
                 ClickablePreference(
                     title = stringResource(R.string.reset_sync),
@@ -194,6 +219,7 @@ private fun SwitchPreference(
 @Composable
 private fun ClickablePreference(
     title: String,
+    subtitle: String? = null,
     onClick: () -> Unit,
 ) {
     Row(
@@ -204,10 +230,19 @@ private fun ClickablePreference(
             .height(56.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyLarge,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
     }
 }
 
@@ -222,6 +257,8 @@ fun SettingsScreenDisconnectedPreview() {
             googleSheetsConnected = false,
             googleSheetsSubtitle = "Not connected",
             onGoogleSheetsChange = {},
+            selectedSpreadsheetName = null,
+            onSpreadsheetClick = {},
             onResetSyncClick = {},
         )
     }
@@ -238,6 +275,8 @@ fun SettingsScreenConnectedPreview() {
             googleSheetsConnected = true,
             googleSheetsSubtitle = "Connected: user@gmail.com",
             onGoogleSheetsChange = {},
+            selectedSpreadsheetName = "My Weight Tracker",
+            onSpreadsheetClick = {},
             onResetSyncClick = {},
         )
     }

@@ -1,6 +1,7 @@
 package org.tomcurran.welfare.ui
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -20,6 +21,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.asDeferred
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.tomcurran.welfare.data.GoogleSheetsRepository
 import org.tomcurran.welfare.data.WeightRepository
 import java.net.HttpURLConnection
 import java.net.URL
@@ -34,6 +36,7 @@ sealed interface GoogleSheetsState {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: WeightRepository,
+    private val googleSheetsRepository: GoogleSheetsRepository,
     @param:ApplicationContext private val appContext: Context,
 ) : ViewModel() {
 
@@ -42,6 +45,9 @@ class SettingsViewModel @Inject constructor(
 
     private val _googleSheetsState = MutableStateFlow<GoogleSheetsState>(GoogleSheetsState.Checking)
     val googleSheetsState: StateFlow<GoogleSheetsState> = _googleSheetsState.asStateFlow()
+
+    val selectedSpreadsheetName: StateFlow<String?> = googleSheetsRepository.selectedSpreadsheetName
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     suspend fun googleSheetsAuthorize(): AuthorizationResult {
         val authorizationRequest = AuthorizationRequest.builder()
@@ -73,6 +79,7 @@ class SettingsViewModel @Inject constructor(
         } else {
             val email = fetchGoogleEmail(accessToken)
             if (email != null) {
+                googleSheetsRepository.setAccountEmail(email)
                 _googleSheetsState.value = GoogleSheetsState.Connected(email)
             } else {
                 _googleSheetsState.value = GoogleSheetsState.NotConnected
@@ -96,7 +103,26 @@ class SettingsViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to disconnect Google Sheets", e)
             }
+            googleSheetsRepository.clearSpreadsheet()
+            googleSheetsRepository.clearAccountEmail()
             _googleSheetsState.value = GoogleSheetsState.NotConnected
+        }
+    }
+
+    fun onSpreadsheetPicked(uri: Uri) {
+        viewModelScope.launch {
+            val displayName = googleSheetsRepository.getDisplayName(uri)
+            if (displayName == null) {
+                Log.w(TAG, "Could not get display name from URI: $uri")
+                return@launch
+            }
+            val result = googleSheetsRepository.resolveSpreadsheetByName(displayName)
+            if (result != null) {
+                val (id, name) = result
+                googleSheetsRepository.selectSpreadsheet(id, name)
+            } else {
+                Log.w(TAG, "Could not resolve spreadsheet ID for: $displayName")
+            }
         }
     }
 
@@ -138,7 +164,7 @@ class SettingsViewModel @Inject constructor(
 
         val GOOGLE_SHEETS_SCOPES = listOf(
             Scope("https://www.googleapis.com/auth/spreadsheets"),
-            Scope("https://www.googleapis.com/auth/drive.file"),
+            Scope(GoogleSheetsRepository.SCOPE_DRIVE_METADATA_READONLY),
             Scope("openid"),
             Scope("email"),
         )
