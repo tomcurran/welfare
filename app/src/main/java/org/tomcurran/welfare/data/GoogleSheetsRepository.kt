@@ -15,7 +15,6 @@ import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.SheetsScopes
-import com.google.api.services.sheets.v4.model.ClearValuesRequest
 import com.google.api.services.sheets.v4.model.ValueRange
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -101,26 +100,61 @@ class GoogleSheetsRepository @Inject constructor(
         try {
             val sheets = buildSheetsService(accessToken)
             val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.systemDefault())
+            val range = "Sheet1"
 
-            val rows = mutableListOf<List<Any>>()
-            rows.add(listOf("Date", "Weight (kg)"))
-            for (entry in entries.sortedBy { it.time }) {
-                val date = dateFormatter.format(Instant.ofEpochMilli(entry.time))
-                rows.add(listOf(date, entry.weight))
+            // Deduplicate entries: keep unique weights per day
+            val deduped = entries
+                .sortedBy { it.time }
+                .groupBy { dateFormatter.format(Instant.ofEpochMilli(it.time)) }
+                .flatMap { (date, dayEntries) ->
+                    dayEntries.distinctBy { it.weight }.map { date to it }
+                }
+
+            // Read existing rows from the sheet
+            val existing = try {
+                sheets.spreadsheets().values()
+                    .get(spreadsheetId, range)
+                    .execute()
+                    .getValues().orEmpty()
+            } catch (e: Exception) {
+                emptyList()
             }
 
-            val range = "Sheet1"
-            sheets.spreadsheets().values()
-                .clear(spreadsheetId, range, ClearValuesRequest())
-                .execute()
+            // Collect existing date-weight pairs (skip header row)
+            val existingKeys = existing.drop(1)
+                .filter { it.size >= 2 }
+                .map { "${it[0]}|${it[1]}" }
+                .toSet()
 
-            val valueRange = ValueRange().setValues(rows)
+            // Build new rows that aren't already in the sheet
+            val newRows = deduped
+                .sortedBy { it.first }
+                .filter { (date, entry) -> "${date}|${entry.weight}" !in existingKeys }
+                .map { (date, entry) -> listOf<Any>(date, entry.weight) }
+
+            if (newRows.isEmpty()) {
+                Log.d(TAG, "No new weight entries to sync")
+                return@withContext
+            }
+
+            // Ensure header exists
+            if (existing.isEmpty()) {
+                val header = ValueRange().setValues(listOf(listOf<Any>("Date", "Weight (kg)")))
+                sheets.spreadsheets().values()
+                    .update(spreadsheetId, "$range!A1", header)
+                    .setValueInputOption("USER_ENTERED")
+                    .execute()
+            }
+
+            // Append new rows
+            val appendRange = ValueRange().setValues(newRows)
             sheets.spreadsheets().values()
-                .update(spreadsheetId, range, valueRange)
+                .append(spreadsheetId, range, appendRange)
                 .setValueInputOption("USER_ENTERED")
+                .setInsertDataOption("INSERT_ROWS")
                 .execute()
 
-            Log.d(TAG, "Synced ${entries.size} weight entries to Google Sheets")
+            Log.d(TAG, "Appended ${newRows.size} new weight entries to Google Sheets")
         } catch (e: Exception) {
             Log.e(TAG, "Failed to sync weights to Google Sheets", e)
         }
