@@ -123,13 +123,13 @@ class GoogleSheetsRepository @Inject constructor(
             // Collect existing date-weight pairs (skip header row)
             val existingKeys = existing.drop(1)
                 .filter { it.size >= 2 }
-                .map { "${it[0]}|${it[1]}" }
+                .map { "${it[0]}|${"%.2f".format(it[1].toString().toDoubleOrNull() ?: 0.0)}" }
                 .toSet()
 
             // Build new rows that aren't already in the sheet
             val newRows = deduped
                 .sortedBy { it.first }
-                .filter { (date, entry) -> "${date}|${entry.weight}" !in existingKeys }
+                .filter { (date, entry) -> "${date}|${"%.2f".format(entry.weight)}" !in existingKeys }
                 .map { (date, entry) -> listOf<Any>(date, entry.weight) }
 
             if (newRows.isEmpty()) {
