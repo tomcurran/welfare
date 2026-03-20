@@ -111,14 +111,10 @@ class GoogleSheetsRepository @Inject constructor(
                 }
 
             // Read existing rows from the sheet
-            val existing = try {
-                sheets.spreadsheets().values()
-                    .get(spreadsheetId, range)
-                    .execute()
-                    .getValues().orEmpty()
-            } catch (e: Exception) {
-                emptyList()
-            }
+            val existing = sheets.spreadsheets().values()
+                .get(spreadsheetId, range)
+                .execute()
+                .getValues().orEmpty()
 
             // Collect existing date-weight pairs (skip header row)
             val existingKeys = existing.drop(1)
