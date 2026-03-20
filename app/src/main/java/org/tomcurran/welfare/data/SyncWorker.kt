@@ -1,7 +1,6 @@
 package org.tomcurran.welfare.data
 
 import android.content.Context
-import android.util.Log
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -17,12 +16,12 @@ class SyncWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            Log.d(TAG, "Weight sync starting")
+            AppLogger.d(TAG, "Weight sync starting")
             repository.sync()
-            Log.d(TAG, "Weight sync completed")
+            AppLogger.d(TAG, "Weight sync completed")
             Result.success()
         } catch (e: Exception) {
-            Log.e(TAG, "Weight sync failed", e)
+            AppLogger.e(TAG, "Weight sync failed", e)
             Result.retry()
         }
     }

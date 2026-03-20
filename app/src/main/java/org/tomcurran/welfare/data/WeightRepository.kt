@@ -1,7 +1,6 @@
 package org.tomcurran.welfare.data
 
 import android.content.Context
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -56,7 +55,7 @@ class WeightRepository @Inject constructor(
             try {
                 incrementalSync(token)
             } catch (e: Exception) {
-                Log.w(TAG, "Incremental sync failed, falling back to full sync", e)
+                AppLogger.w(TAG, "Incremental sync failed, falling back to full sync", e)
                 resetSync()
                 fullSync()
             }
@@ -64,7 +63,7 @@ class WeightRepository @Inject constructor(
         try {
             googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
         } catch (e: Exception) {
-            Log.w(TAG, "Google Sheets sync failed", e)
+            AppLogger.w(TAG, "Google Sheets sync failed", e)
         }
     }
 

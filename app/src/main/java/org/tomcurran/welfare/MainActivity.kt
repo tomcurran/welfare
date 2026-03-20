@@ -10,12 +10,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.serialization.Serializable
+import org.tomcurran.welfare.BuildConfig
+import org.tomcurran.welfare.ui.LogsScreen
 import org.tomcurran.welfare.ui.SettingsScreen
 import org.tomcurran.welfare.ui.WeightScreen
 import org.tomcurran.welfare.ui.theme.WelfareTheme
 
 @Serializable object WeightRoute
 @Serializable object SettingsRoute
+@Serializable object LogsRoute
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -37,7 +40,16 @@ class MainActivity : ComponentActivity() {
                         SettingsScreen(
                             viewModel = hiltViewModel(),
                             onBack = { navController.popBackStack() },
+                            onNavigateToLogs = { navController.navigate(LogsRoute) },
                         )
+                    }
+                    if (BuildConfig.DEBUG) {
+                        composable<LogsRoute> {
+                            LogsScreen(
+                                viewModel = hiltViewModel(),
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
                     }
                 }
             }

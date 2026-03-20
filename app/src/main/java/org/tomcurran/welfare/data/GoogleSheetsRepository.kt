@@ -4,7 +4,6 @@ import android.accounts.Account
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -43,7 +42,7 @@ class GoogleSheetsRepository @Inject constructor(
             val scope = "oauth2:${SheetsScopes.SPREADSHEETS} $SCOPE_DRIVE_METADATA_READONLY"
             GoogleAuthUtil.getToken(context, account, scope)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to get access token", e)
+            AppLogger.e(TAG, "Failed to get access token", e)
             null
         }
     }
@@ -89,7 +88,7 @@ class GoogleSheetsRepository @Inject constructor(
                 val file = result.files?.firstOrNull() ?: return@withContext null
                 file.id to file.name
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to resolve spreadsheet by name: $displayName", e)
+                AppLogger.e(TAG, "Failed to resolve spreadsheet by name: $displayName", e)
                 null
             }
         }
@@ -129,7 +128,7 @@ class GoogleSheetsRepository @Inject constructor(
                 .map { (date, entry) -> listOf<Any>(date, entry.weight) }
 
             if (newRows.isEmpty()) {
-                Log.d(TAG, "No new weight entries to sync")
+                AppLogger.d(TAG, "No new weight entries to sync")
                 return@withContext
             }
 
@@ -150,9 +149,9 @@ class GoogleSheetsRepository @Inject constructor(
                 .setInsertDataOption("INSERT_ROWS")
                 .execute()
 
-            Log.d(TAG, "Appended ${newRows.size} new weight entries to Google Sheets")
+            AppLogger.d(TAG, "Appended ${newRows.size} new weight entries to Google Sheets")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to sync weights to Google Sheets", e)
+            AppLogger.e(TAG, "Failed to sync weights to Google Sheets", e)
         }
     }
 

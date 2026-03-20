@@ -1,6 +1,5 @@
 package org.tomcurran.welfare.ui
 
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +34,7 @@ import com.google.android.gms.auth.api.identity.Identity
 import kotlinx.coroutines.launch
 import org.tomcurran.welfare.BuildConfig
 import org.tomcurran.welfare.R
+import org.tomcurran.welfare.data.AppLogger
 import org.tomcurran.welfare.data.GoogleSheetsRepository
 import org.tomcurran.welfare.ui.theme.WelfareTheme
 
@@ -44,6 +44,7 @@ private const val TAG = "SettingsScreen"
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onBack: () -> Unit,
+    onNavigateToLogs: () -> Unit,
 ) {
     val backgroundSyncEnabled by viewModel.backgroundSyncEnabled.collectAsStateWithLifecycle()
     val googleSheetsState by viewModel.googleSheetsState.collectAsStateWithLifecycle()
@@ -63,7 +64,7 @@ fun SettingsScreen(
             val authorizationResult = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data)
             viewModel.onGoogleSheetsAuthorized(authorizationResult)
         } catch (e: Exception) {
-            Log.e(TAG, "Google Sheets authorization failed", e)
+            AppLogger.e(TAG, "Google Sheets authorization failed", e)
         }
     }
 
@@ -88,7 +89,7 @@ fun SettingsScreen(
                     viewModel.onGoogleSheetsAuthorized(authorizationResult)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Google Sheets authorization failed", e)
+                AppLogger.e(TAG, "Google Sheets authorization failed", e)
             }
         }
     }
@@ -121,6 +122,7 @@ fun SettingsScreen(
             )
         },
         onResetSyncClick = { viewModel.resetSync() },
+        onViewLogsClick = onNavigateToLogs,
     )
 }
 
@@ -136,6 +138,7 @@ fun SettingsScreenContent(
     selectedSpreadsheetName: String?,
     onSpreadsheetClick: () -> Unit,
     onResetSyncClick: () -> Unit,
+    onViewLogsClick: () -> Unit,
 ) {
     Scaffold(
         topBar = {
@@ -175,6 +178,10 @@ fun SettingsScreenContent(
                 ClickablePreference(
                     title = stringResource(R.string.reset_sync),
                     onClick = onResetSyncClick,
+                )
+                ClickablePreference(
+                    title = stringResource(R.string.view_logs),
+                    onClick = onViewLogsClick,
                 )
             }
         }
@@ -260,6 +267,7 @@ fun SettingsScreenDisconnectedPreview() {
             selectedSpreadsheetName = null,
             onSpreadsheetClick = {},
             onResetSyncClick = {},
+            onViewLogsClick = {},
         )
     }
 }
@@ -278,6 +286,7 @@ fun SettingsScreenConnectedPreview() {
             selectedSpreadsheetName = "My Weight Tracker",
             onSpreadsheetClick = {},
             onResetSyncClick = {},
+            onViewLogsClick = {},
         )
     }
 }

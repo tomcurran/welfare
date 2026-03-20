@@ -2,7 +2,6 @@ package org.tomcurran.welfare.ui
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
@@ -21,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.asDeferred
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import org.tomcurran.welfare.data.AppLogger
 import org.tomcurran.welfare.data.GoogleSheetsRepository
 import org.tomcurran.welfare.data.WeightRepository
 import java.net.HttpURLConnection
@@ -67,7 +67,7 @@ class SettingsViewModel @Inject constructor(
                 val authorizationResult = googleSheetsAuthorize()
                 processAuthorizationResult(authorizationResult)
             } catch (e: Exception) {
-                Log.d(TAG, "Google Sheets auth check failed", e)
+                AppLogger.d(TAG, "Google Sheets auth check failed")
             }
         }
     }
@@ -101,7 +101,7 @@ class SettingsViewModel @Inject constructor(
                     .asDeferred()
                     .await()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to disconnect Google Sheets", e)
+                AppLogger.e(TAG, "Failed to disconnect Google Sheets", e)
             }
             googleSheetsRepository.clearSpreadsheet()
             googleSheetsRepository.clearAccountEmail()
@@ -113,7 +113,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val displayName = googleSheetsRepository.getDisplayName(uri)
             if (displayName == null) {
-                Log.w(TAG, "Could not get display name from URI: $uri")
+                AppLogger.w(TAG, "Could not get display name from URI: $uri")
                 return@launch
             }
             val result = googleSheetsRepository.resolveSpreadsheetByName(displayName)
@@ -121,7 +121,7 @@ class SettingsViewModel @Inject constructor(
                 val (id, name) = result
                 googleSheetsRepository.selectSpreadsheet(id, name)
             } else {
-                Log.w(TAG, "Could not resolve spreadsheet ID for: $displayName")
+                AppLogger.w(TAG, "Could not resolve spreadsheet ID for: $displayName")
             }
         }
     }
@@ -154,7 +154,7 @@ class SettingsViewModel @Inject constructor(
                 val response = connection.inputStream.bufferedReader().use { it.readText() }
                 JSONObject(response).optString("email").takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to fetch Google email", e)
+                AppLogger.e(TAG, "Failed to fetch Google email", e)
                 null
             }
         }

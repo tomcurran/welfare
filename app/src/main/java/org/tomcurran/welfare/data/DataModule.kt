@@ -1,7 +1,6 @@
 package org.tomcurran.welfare.data
 
 import android.content.Context
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
@@ -41,7 +40,7 @@ object DataModule {
         try {
             HealthConnectClient.getOrCreate(context)
         } catch (e: Exception) {
-            Log.e(TAG, "Health Connect not available", e)
+            AppLogger.e(TAG, "Health Connect not available", e)
             null
         }
 

@@ -1,7 +1,6 @@
 package org.tomcurran.welfare.ui
 
 import android.content.Context
-import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.WeightRecord
@@ -18,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import org.tomcurran.welfare.data.AppLogger
 import org.tomcurran.welfare.data.WeightRepository
 import java.time.Instant
 import java.time.LocalDate
@@ -92,7 +92,7 @@ class WeightViewModel @Inject constructor(
                 try {
                     repository.sync()
                 } catch (e: Exception) {
-                    Log.e(TAG, "Sync failed", e)
+                    AppLogger.e(TAG, "Sync failed", e)
                 }
                 scheduleBackgroundSync()
             } else {
@@ -108,7 +108,7 @@ class WeightViewModel @Inject constructor(
                 try {
                     repository.sync()
                 } catch (e: Exception) {
-                    Log.e(TAG, "Sync failed", e)
+                    AppLogger.e(TAG, "Sync failed", e)
                 }
             }
             scheduleBackgroundSync()
