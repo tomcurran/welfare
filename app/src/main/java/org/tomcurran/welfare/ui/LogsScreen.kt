@@ -75,7 +75,7 @@ private fun LogEntryRow(entry: AppLogger.LogEntry) {
         "W" -> Color(0xFFFFA000)
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     }
-    val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+    val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
     val time = Instant.ofEpochMilli(entry.timestamp)
         .atZone(ZoneId.systemDefault())
         .format(timeFormatter)
