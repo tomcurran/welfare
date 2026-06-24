@@ -15,13 +15,15 @@ class SyncWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        val attempt = runAttemptCount
         return try {
-            AppLogger.d(TAG, "Weight sync starting")
+            AppLogger.d(TAG, "Weight sync starting (attempt ${attempt + 1})")
             repository.sync()
             AppLogger.d(TAG, "Weight sync completed")
             Result.success()
         } catch (e: Exception) {
             AppLogger.e(TAG, "Weight sync failed", e)
+            AppLogger.e(TAG, "Weight sync failed (attempt ${attempt + 1})", e)
             Result.retry()
         }
     }
