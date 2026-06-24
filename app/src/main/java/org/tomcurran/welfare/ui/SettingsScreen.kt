@@ -49,6 +49,7 @@ fun SettingsScreen(
     val backgroundSyncEnabled by viewModel.backgroundSyncEnabled.collectAsStateWithLifecycle()
     val googleSheetsState by viewModel.googleSheetsState.collectAsStateWithLifecycle()
     val selectedSpreadsheetName by viewModel.selectedSpreadsheetName.collectAsStateWithLifecycle()
+    val spreadsheetPickFailed by viewModel.spreadsheetPickFailed.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -121,6 +122,7 @@ fun SettingsScreen(
             }
         },
         selectedSpreadsheetName = selectedSpreadsheetName,
+        spreadsheetPickFailed = spreadsheetPickFailed,
         onSpreadsheetClick = {
             spreadsheetPickerLauncher.launch(
                 arrayOf(GoogleSheetsRepository.MIME_TYPE_GOOGLE_SPREADSHEET)
@@ -141,6 +143,7 @@ fun SettingsScreenContent(
     googleSheetsSubtitle: String?,
     onGoogleSheetsChange: (Boolean) -> Unit,
     selectedSpreadsheetName: String?,
+    spreadsheetPickFailed: Boolean = false,
     onSpreadsheetClick: () -> Unit,
     onResetSyncClick: () -> Unit,
     onViewLogsClick: () -> Unit,
@@ -175,7 +178,11 @@ fun SettingsScreenContent(
             if (googleSheetsConnected) {
                 ClickablePreference(
                     title = stringResource(R.string.select_spreadsheet),
-                    subtitle = selectedSpreadsheetName ?: stringResource(R.string.no_spreadsheet_selected),
+                    subtitle = when {
+                        spreadsheetPickFailed -> stringResource(R.string.spreadsheet_pick_failed)
+                        selectedSpreadsheetName != null -> selectedSpreadsheetName
+                        else -> stringResource(R.string.no_spreadsheet_selected)
+                    },
                     onClick = onSpreadsheetClick,
                 )
             }

@@ -49,6 +49,9 @@ class SettingsViewModel @Inject constructor(
     val selectedSpreadsheetName: StateFlow<String?> = googleSheetsRepository.selectedSpreadsheetName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    private val _spreadsheetPickFailed = MutableStateFlow(false)
+    val spreadsheetPickFailed: StateFlow<Boolean> = _spreadsheetPickFailed.asStateFlow()
+
     suspend fun googleSheetsAuthorize(): AuthorizationResult {
         val authorizationRequest = AuthorizationRequest.builder()
             .setRequestedScopes(GOOGLE_SHEETS_SCOPES)
@@ -127,9 +130,11 @@ class SettingsViewModel @Inject constructor(
 
     fun onSpreadsheetPicked(uri: Uri) {
         viewModelScope.launch {
+            _spreadsheetPickFailed.value = false
             val displayName = googleSheetsRepository.getDisplayName(uri)
             if (displayName == null) {
                 AppLogger.w(TAG, "Could not get display name from URI: $uri")
+                _spreadsheetPickFailed.value = true
                 return@launch
             }
             val result = googleSheetsRepository.resolveSpreadsheetByName(displayName)
@@ -138,6 +143,7 @@ class SettingsViewModel @Inject constructor(
                 googleSheetsRepository.selectSpreadsheet(id, name)
             } else {
                 AppLogger.w(TAG, "Could not resolve spreadsheet ID for: $displayName")
+                _spreadsheetPickFailed.value = true
             }
         }
     }
