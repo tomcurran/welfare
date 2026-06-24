@@ -22,8 +22,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -99,15 +100,15 @@ class GoogleSheetsRepository @Inject constructor(
         val accessToken = getAccessToken() ?: return@withContext
         try {
             val sheets = buildSheetsService(accessToken)
-            val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE.withZone(ZoneId.systemDefault())
+            val zoneId = ZoneId.systemDefault()
             val range = "Sheet1"
 
             // Deduplicate entries: keep unique weights per day
             val deduped = entries
                 .sortedBy { it.time }
-                .groupBy { dateFormatter.format(Instant.ofEpochMilli(it.time)) }
-                .flatMap { (date, dayEntries) ->
-                    dayEntries.distinctBy { it.weight }.map { date to it }
+                .groupBy { Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate().toString() }
+                .flatMap { (dateStr, dayEntries) ->
+                    dayEntries.distinctBy { it.weight }.map { dateStr to it }
                 }
 
             fun parseSheetWeight(value: Any?): Double? {
@@ -115,6 +116,18 @@ class GoogleSheetsRepository @Inject constructor(
                 val str = value?.toString() ?: return null
                 val cleanStr = str.replace(Regex("[^0-9.,]"), "").replace(',', '.')
                 return cleanStr.toDoubleOrNull()
+            }
+
+            fun normalizeSheetDate(value: Any?): String? {
+                val str = value?.toString() ?: return null
+                return try {
+                    // Try parsing as ISO date (which is what we write)
+                    LocalDate.parse(str).toString()
+                } catch (_: DateTimeParseException) {
+                    // If parsing fails, it might be a different format or a serial number
+                    // For now, we return as-is but could be expanded to handle more formats
+                    str
+                }
             }
 
             // Read existing rows from the sheet
@@ -127,14 +140,14 @@ class GoogleSheetsRepository @Inject constructor(
             // Collect existing date-weight pairs (skip header row)
             val existingKeys = existing.drop(1)
                 .filter { it.size >= 2 }
-                .map { "${it[0]}|${"%.2f".format(Locale.US, parseSheetWeight(it[1]) ?: 0.0)}" }
+                .map { "${normalizeSheetDate(it[0])}|${"%.2f".format(Locale.US, parseSheetWeight(it[1]) ?: 0.0)}" }
                 .toSet()
 
             // Build new rows that aren't already in the sheet
             val newRows = deduped
                 .sortedBy { it.first }
-                .filter { (date, entry) -> "${date}|${"%.2f".format(Locale.US, entry.weight)}" !in existingKeys }
-                .map { (date, entry) -> listOf<Any>(date, entry.weight) }
+                .filter { (dateStr, entry) -> "${dateStr}|${"%.2f".format(Locale.US, entry.weight)}" !in existingKeys }
+                .map { (dateStr, entry) -> listOf<Any>(dateStr, entry.weight) }
 
             if (newRows.isEmpty()) {
                 AppLogger.d(TAG, "No new weight entries to sync")
