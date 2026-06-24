@@ -129,14 +129,16 @@ class GoogleSheetsRepository @Inject constructor(
 
             fun normalizeSheetDate(value: Any?): String? {
                 val str = value?.toString() ?: return null
-                return try {
-                    // Try parsing as ISO date (which is what we write)
-                    LocalDate.parse(str).toString()
-                } catch (_: DateTimeParseException) {
-                    // If parsing fails, it might be a different format or a serial number
-                    // For now, we return as-is but could be expanded to handle more formats
-                    str
+                // Try parsing as ISO date (which is what we write)
+                try {
+                    return LocalDate.parse(str).toString()
+                } catch (_: DateTimeParseException) { }
+                // Google Sheets converts USER_ENTERED ISO dates to date serial numbers
+                // (days since Dec 30, 1899) when read back with UNFORMATTED_VALUE
+                str.toDoubleOrNull()?.let { serial ->
+                    return LocalDate.of(1899, 12, 30).plusDays(serial.toLong()).toString()
                 }
+                return str
             }
 
             // Read existing rows from the sheet
