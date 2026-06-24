@@ -107,6 +107,7 @@ object AppLogger {
     }
 
     private fun decrypt(data: ByteArray): ByteArray {
+        require(data.size > IV_SIZE) { "Encrypted data too short to contain IV" }
         val iv = data.copyOfRange(0, IV_SIZE)
         val ciphertext = data.copyOfRange(IV_SIZE, data.size)
         val cipher = Cipher.getInstance(TRANSFORMATION)
