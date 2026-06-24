@@ -26,7 +26,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.tomcurran.welfare.BuildConfig
 import java.time.Instant
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -85,7 +84,7 @@ class WeightRepository @Inject constructor(
             return SyncResult(newToken = null, hasChanges = false)
 
         val now = Instant.now()
-        val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
+        val start = Instant.EPOCH
         var pageToken: String? = null
         val fetched = mutableListOf<WeightEntity>()
         do {
@@ -156,7 +155,6 @@ class WeightRepository @Inject constructor(
         private val TAG: String = WeightRepository::class.java.simpleName
         private val KEY_HEALTH_CONNECT_CHANGES_TOKEN = stringPreferencesKey("health_connect_changes_token")
         private val KEY_BACKGROUND_SYNC_ENABLED = booleanPreferencesKey("background_sync_enabled")
-        private const val FULL_SYNC_DAYS: Long = 365 * 5
         private const val WORK_NAME_BACKGROUND_SYNC = "background_sync"
 
         fun scheduleBackgroundSync(context: Context) {
