@@ -53,6 +53,7 @@ class WeightViewModel @Inject constructor(
 
     private val _permissionDenied = MutableStateFlow(false)
     private val _healthConnectUnavailable = MutableStateFlow(healthConnectClient == null)
+    private val _permissionChecked = MutableStateFlow(false)
 
     private val dataState = repository.entries()
         .map<_, WeightUiState> { entities ->
@@ -75,16 +76,22 @@ class WeightViewModel @Inject constructor(
         dataState,
         _permissionDenied,
         _healthConnectUnavailable,
-    ) { data, denied, unavailable ->
+        _permissionChecked,
+    ) { data, denied, unavailable, checked ->
         when {
             unavailable -> WeightUiState.HealthConnectUnavailable
+            !checked -> WeightUiState.Loading
             denied -> WeightUiState.PermissionNotGranted
             else -> data
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WeightUiState.Loading)
 
     fun checkPermissionsAndLoad() {
-        val client = healthConnectClient ?: return
+        val client = healthConnectClient
+        if (client == null) {
+            _permissionChecked.value = true
+            return
+        }
         viewModelScope.launch {
             val granted = client.permissionController.getGrantedPermissions()
             if (requiredPermissions.all { it in granted }) {
@@ -98,6 +105,7 @@ class WeightViewModel @Inject constructor(
             } else {
                 _permissionDenied.value = true
             }
+            _permissionChecked.value = true
         }
     }
 
@@ -115,6 +123,7 @@ class WeightViewModel @Inject constructor(
         } else {
             _permissionDenied.value = true
         }
+        _permissionChecked.value = true
     }
 
     private fun scheduleBackgroundSync() {
