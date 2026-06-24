@@ -60,8 +60,13 @@ fun SettingsScreen(
     val authorizationLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartIntentSenderForResult(),
     ) { result ->
+        val data = result.data
+        if (data == null) {
+            AppLogger.w(TAG, "Google Sheets authorization returned no data")
+            return@rememberLauncherForActivityResult
+        }
         try {
-            val authorizationResult = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data)
+            val authorizationResult = Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data)
             viewModel.onGoogleSheetsAuthorized(authorizationResult)
         } catch (e: Exception) {
             AppLogger.e(TAG, "Google Sheets authorization failed", e)
