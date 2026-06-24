@@ -116,7 +116,7 @@ fun WeightScreenContent(
                         .padding(innerPadding),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(stringResource(R.string.error_format, "Health Connect is not available"))
+                    Text(stringResource(R.string.health_connect_unavailable))
                 }
             }
             is WeightUiState.PermissionNotGranted -> {

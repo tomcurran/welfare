@@ -16,6 +16,7 @@
     <string name="select_spreadsheet">Spreadsheet</string>
     <string name="no_spreadsheet_selected">No spreadsheet selected</string>
     <string name="spreadsheet_pick_failed">Could not find spreadsheet — try again</string>
+    <string name="health_connect_unavailable">Health Connect is not available</string>
     <string name="permissions_rationale">Welfare reads your weight records from Health Connect to display your weight history. No data is shared with third parties.</string>
     <string name="view_logs">View logs</string>
     <string name="logs">Logs</string>
