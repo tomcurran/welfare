@@ -114,7 +114,7 @@ class GoogleSheetsRepository @Inject constructor(
                 ?: fetchAndCacheFirstSheetName(sheets, spreadsheetId)
 
             data class WeightKey(val date: LocalDate, val weightCentis: Long)
-            fun Double.toWeightCentis() = (this * 100).toLong()
+            fun Double.toWeightCentis() = Math.round(this * 100)
 
             // Deduplicate entries: keep unique weights per day
             val deduped = entries
