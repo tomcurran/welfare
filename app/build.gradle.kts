@@ -67,7 +67,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.hilt.android)
-    implementation(libs.hilt.lifecycle.viewmodel.compose)
     implementation(libs.hilt.navigation.compose)
     implementation(libs.hilt.work)
     implementation(libs.play.services.auth)
