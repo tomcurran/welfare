@@ -95,13 +95,22 @@ class GoogleSheetsRepository @Inject constructor(
             }
         }
 
+    private suspend fun getFirstSheetName(sheets: Sheets, spreadsheetId: String): String =
+        withContext(Dispatchers.IO) {
+            val spreadsheet = sheets.spreadsheets().get(spreadsheetId)
+                .setFields("sheets.properties.title")
+                .execute()
+            spreadsheet.getSheets()?.firstOrNull()?.getProperties()?.getTitle() ?: "Sheet1"
+        }
+
     suspend fun syncWeightsToSheet(entries: List<WeightEntity>) = withContext(Dispatchers.IO) {
         val spreadsheetId = dataStore.data.first()[KEY_SPREADSHEET_ID] ?: return@withContext
         val accessToken = getAccessToken() ?: return@withContext
         try {
             val sheets = buildSheetsService(accessToken)
             val zoneId = ZoneId.systemDefault()
-            val range = "Sheet1"
+            val sheetName = getFirstSheetName(sheets, spreadsheetId)
+            val range = sheetName
 
             // Deduplicate entries: keep unique weights per day
             val deduped = entries
