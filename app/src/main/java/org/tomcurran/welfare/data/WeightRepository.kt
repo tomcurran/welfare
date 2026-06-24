@@ -145,7 +145,7 @@ class WeightRepository @Inject constructor(
             currentToken = changesResponse.nextChangesToken
         } while (changesResponse.hasMore)
         if (BuildConfig.DEBUG) {
-            // force sync to sheets while debugging
+            // TODO: remove before release — forces sheet sync on every incremental sync
             hasChanges = true
         }
         return SyncResult(newToken = currentToken, hasChanges = hasChanges)
