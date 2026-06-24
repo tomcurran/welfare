@@ -109,7 +109,7 @@ class WeightRepository @Inject constructor(
         val newToken = healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )
-        return SyncResult(newToken = newToken, hasChanges = true)
+        return SyncResult(newToken = newToken, hasChanges = fetched.isNotEmpty())
     }
 
     private suspend fun incrementalSync(token: String): SyncResult {
