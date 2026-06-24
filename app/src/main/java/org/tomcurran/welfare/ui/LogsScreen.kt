@@ -22,23 +22,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.tomcurran.welfare.R
 import org.tomcurran.welfare.data.AppLogger
+import org.tomcurran.welfare.ui.theme.WelfareTheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(
     viewModel: LogsViewModel,
     onBack: () -> Unit,
 ) {
     val entries by viewModel.entries.collectAsStateWithLifecycle()
+    LogsScreenContent(
+        entries = entries,
+        onBack = onBack,
+        onClearLogs = viewModel::clearLogs,
+    )
+}
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogsScreenContent(
+    entries: List<AppLogger.LogEntry>,
+    onBack: () -> Unit,
+    onClearLogs: () -> Unit,
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -52,7 +66,7 @@ fun LogsScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = viewModel::clearLogs) {
+                    TextButton(onClick = onClearLogs) {
                         Text(stringResource(R.string.clear_logs))
                     }
                 },
@@ -103,5 +117,39 @@ private fun LogEntryRow(entry: AppLogger.LogEntry) {
                 color = levelColor.copy(alpha = 0.7f),
             )
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun LogsScreenPreview() {
+    WelfareTheme {
+        LogsScreenContent(
+            entries = listOf(
+                AppLogger.LogEntry(
+                    timestamp = 1731580800000L, // 2024-11-14 10:40:00
+                    level = "I",
+                    tag = "LogsScreen",
+                    message = "This is an info log",
+                    throwable = null
+                ),
+                AppLogger.LogEntry(
+                    timestamp = 1731580860000L, // 2024-11-14 10:41:00
+                    level = "W",
+                    tag = "LogsScreen",
+                    message = "This is a warning log",
+                    throwable = null
+                ),
+                AppLogger.LogEntry(
+                    timestamp = 1731580920000L, // 2024-11-14 10:42:00
+                    level = "E",
+                    tag = "LogsScreen",
+                    message = "This is an error log",
+                    throwable = "java.lang.RuntimeException: Something went wrong\n\tat org.tomcurran.welfare.ui.LogsScreenKt.LogsScreenPreview(LogsScreen.kt:100)"
+                )
+            ),
+            onBack = {},
+            onClearLogs = {}
+        )
     }
 }
