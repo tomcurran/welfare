@@ -98,6 +98,9 @@ class WeightViewModel @Inject constructor(
                 _permissionDenied.value = false
                 try {
                     repository.sync()
+                } catch (e: SecurityException) {
+                    AppLogger.e(TAG, "Sync failed: permissions revoked", e)
+                    _permissionDenied.value = true
                 } catch (e: Exception) {
                     AppLogger.e(TAG, "Sync failed", e)
                 }
@@ -115,6 +118,9 @@ class WeightViewModel @Inject constructor(
             viewModelScope.launch {
                 try {
                     repository.sync()
+                } catch (e: SecurityException) {
+                    AppLogger.e(TAG, "Sync failed: permissions revoked", e)
+                    _permissionDenied.value = true
                 } catch (e: Exception) {
                     AppLogger.e(TAG, "Sync failed", e)
                 }
