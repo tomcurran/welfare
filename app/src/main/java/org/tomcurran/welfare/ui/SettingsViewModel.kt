@@ -7,10 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.Scope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,13 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.asDeferred
-import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import org.tomcurran.welfare.data.AppLogger
 import org.tomcurran.welfare.data.GoogleSheetsRepository
 import org.tomcurran.welfare.data.WeightRepository
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 
 sealed interface GoogleSheetsState {
@@ -74,17 +70,17 @@ class SettingsViewModel @Inject constructor(
     }
 
     private suspend fun processAuthorizationResult(authorizationResult: AuthorizationResult) {
-        val accessToken = authorizationResult.accessToken
-        if (accessToken == null) {
+        if (authorizationResult.accessToken == null) {
             _googleSheetsState.value = GoogleSheetsState.NotConnected
+            return
+        }
+        val email = GoogleSignIn.getLastSignedInAccount(appContext)?.email
+        if (email != null) {
+            googleSheetsRepository.setAccountEmail(email)
+            _googleSheetsState.value = GoogleSheetsState.Connected(email)
         } else {
-            val email = fetchGoogleEmail(accessToken)
-            if (email != null) {
-                googleSheetsRepository.setAccountEmail(email)
-                _googleSheetsState.value = GoogleSheetsState.Connected(email)
-            } else {
-                _googleSheetsState.value = GoogleSheetsState.NotConnected
-            }
+            AppLogger.w(TAG, "Authorization succeeded but no signed-in account found")
+            _googleSheetsState.value = GoogleSheetsState.NotConnected
         }
     }
 
@@ -143,22 +139,6 @@ class SettingsViewModel @Inject constructor(
             repository.resetSync()
         }
     }
-
-    private suspend fun fetchGoogleEmail(accessToken: String): String? =
-        withContext(Dispatchers.IO) {
-            try {
-                val url = URL("https://www.googleapis.com/oauth2/v3/userinfo")
-                val connection = url.openConnection() as HttpURLConnection
-                connection.setRequestProperty("Authorization", "Bearer $accessToken")
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                JSONObject(response).optString("email").takeIf { it.isNotEmpty() }
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Failed to fetch Google email", e)
-                null
-            }
-        }
 
     companion object {
         private val TAG: String = SettingsViewModel::class.java.simpleName
