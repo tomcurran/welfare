@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -52,6 +51,9 @@ class WeightViewModel @Inject constructor(
         HealthPermission.PERMISSION_READ_HEALTH_DATA_HISTORY,
         HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND,
     )
+
+    private val backgroundSyncEnabled: StateFlow<Boolean> = repository.backgroundSyncEnabled
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
 
     private val _permissionDenied = MutableStateFlow(false)
     private val _healthConnectUnavailable = MutableStateFlow(healthConnectClient == null)
@@ -128,10 +130,8 @@ class WeightViewModel @Inject constructor(
     }
 
     private fun scheduleBackgroundSync() {
-        viewModelScope.launch {
-            if (!repository.backgroundSyncEnabled.first()) return@launch
-            WeightRepository.scheduleBackgroundSync(appContext)
-        }
+        if (!backgroundSyncEnabled.value) return
+        WeightRepository.scheduleBackgroundSync(appContext)
     }
 
     companion object {
