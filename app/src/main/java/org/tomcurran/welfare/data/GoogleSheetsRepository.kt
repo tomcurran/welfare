@@ -142,11 +142,13 @@ class GoogleSheetsRepository @Inject constructor(
                 return null
             }
 
-            // Read existing rows from the sheet in chunks — the Sheets API has no
+            // Read existing data rows from the sheet in chunks — the Sheets API has no
             // page token mechanism for values.get, so we loop over explicit row ranges.
+            // Start at row 2 to skip the header, so READ_CHUNK_SIZE is a consistent
+            // count of data rows across all chunks.
             val existingKeys = mutableSetOf<WeightKey>()
-            var rowOffset = 1 // 1-based; row 1 is the header, data starts at row 2
-            var sheetIsEmpty = true
+            var rowOffset = 2 // row 1 is the header; data starts at row 2
+            var foundAnyRows = false
             while (true) {
                 val chunkRange = "$range!A$rowOffset:B${rowOffset + READ_CHUNK_SIZE - 1}"
                 val rows = sheets.spreadsheets().values()
@@ -155,9 +157,8 @@ class GoogleSheetsRepository @Inject constructor(
                     .execute()
                     .getValues().orEmpty()
                 if (rows.isEmpty()) break
-                sheetIsEmpty = sheetIsEmpty && rowOffset == 1 && rows.isEmpty()
-                val dataRows = if (rowOffset == 1) rows.drop(1) else rows // skip header on first chunk
-                dataRows
+                foundAnyRows = true
+                rows
                     .filter { it.size >= 2 }
                     .mapNotNullTo(existingKeys) { row ->
                         val date = normalizeSheetDate(row[0]) ?: return@mapNotNullTo null
@@ -167,7 +168,7 @@ class GoogleSheetsRepository @Inject constructor(
                 if (rows.size < READ_CHUNK_SIZE) break
                 rowOffset += READ_CHUNK_SIZE
             }
-            val sheetHasNoRows = rowOffset == 1 && existingKeys.isEmpty()
+            val sheetHasNoRows = !foundAnyRows
 
             // Build new rows that aren't already in the sheet
             val newRows = deduped
