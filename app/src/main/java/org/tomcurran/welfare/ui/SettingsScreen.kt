@@ -80,8 +80,8 @@ fun SettingsScreen(
         scope.launch {
             try {
                 val authorizationResult = viewModel.googleSheetsAuthorize()
-                if (authorizationResult.hasResolution()) {
-                    val pendingIntent = authorizationResult.pendingIntent!!
+                val pendingIntent = authorizationResult.pendingIntent
+                if (authorizationResult.hasResolution() && pendingIntent != null) {
                     authorizationLauncher.launch(
                         IntentSenderRequest.Builder(pendingIntent).build()
                     )
