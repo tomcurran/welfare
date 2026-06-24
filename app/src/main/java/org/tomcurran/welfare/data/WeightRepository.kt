@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.tomcurran.welfare.BuildConfig
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
@@ -51,11 +52,13 @@ class WeightRepository @Inject constructor(
         dataStore.edit { it.remove(KEY_HEALTH_CONNECT_CHANGES_TOKEN) }
     }
 
+    private data class SyncResult(val newToken: String?, val hasChanges: Boolean)
+
     private val syncMutex = Mutex()
 
     suspend fun sync() = syncMutex.withLock {
         val token = dataStore.data.first()[KEY_HEALTH_CONNECT_CHANGES_TOKEN]
-        val newToken = if (token == null) {
+        val result = if (token == null) {
             fullSync()
         } else {
             try {
@@ -69,15 +72,17 @@ class WeightRepository @Inject constructor(
                 fullSync()
             }
         }
-        googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
-        if (newToken != null) {
-            dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = newToken }
+        if (result.hasChanges) {
+            googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
+        }
+        if (result.newToken != null) {
+            dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = result.newToken }
         }
     }
 
-    private suspend fun fullSync(): String? {
+    private suspend fun fullSync(): SyncResult {
         if (healthConnectClient == null)
-            return null
+            return SyncResult(newToken = null, hasChanges = false)
 
         val now = Instant.now()
         val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
@@ -101,19 +106,22 @@ class WeightRepository @Inject constructor(
             pageToken = response.pageToken
         } while (pageToken != null)
         dao.replaceAll(fetched)
-        return healthConnectClient.getChangesToken(
+        val newToken = healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )
+        return SyncResult(newToken = newToken, hasChanges = true)
     }
 
-    private suspend fun incrementalSync(token: String): String? {
+    private suspend fun incrementalSync(token: String): SyncResult {
         if (healthConnectClient == null)
-            return null
+            return SyncResult(newToken = null, hasChanges = false)
 
         var currentToken = token
+        var hasChanges = false
         do {
             val changesResponse = healthConnectClient.getChanges(currentToken)
             val upserts = mutableListOf<WeightEntity>()
+            val deletionIds = mutableListOf<String>()
             for (change in changesResponse.changes) {
                 when (change) {
                     is UpsertionChange -> {
@@ -128,17 +136,20 @@ class WeightRepository @Inject constructor(
                             )
                         }
                     }
-                    is DeletionChange -> {
-                        dao.deleteByHealthConnectId(change.recordId)
-                    }
+                    is DeletionChange -> deletionIds.add(change.recordId)
                 }
             }
-            if (upserts.isNotEmpty()) {
-                dao.upsertAll(upserts)
+            if (deletionIds.isNotEmpty() || upserts.isNotEmpty()) {
+                dao.applyChanges(deletionIds, upserts)
+                hasChanges = true
             }
             currentToken = changesResponse.nextChangesToken
         } while (changesResponse.hasMore)
-        return currentToken
+        if (BuildConfig.DEBUG) {
+            // force sync to sheets while debugging
+            hasChanges = true
+        }
+        return SyncResult(newToken = currentToken, hasChanges = hasChanges)
     }
 
     companion object {

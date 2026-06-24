@@ -28,4 +28,10 @@ abstract class WeightDao {
 
     @Query("DELETE FROM weight WHERE healthConnectId = :id")
     abstract suspend fun deleteByHealthConnectId(id: String)
+
+    @Transaction
+    open suspend fun applyChanges(deletionIds: List<String>, upserts: List<WeightEntity>) {
+        deletionIds.forEach { deleteByHealthConnectId(it) }
+        if (upserts.isNotEmpty()) upsertAll(upserts)
+    }
 }
