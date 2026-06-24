@@ -119,14 +119,6 @@ class SettingsViewModel @Inject constructor(
 
     fun disconnectGoogleSheets() {
         viewModelScope.launch {
-            try {
-                Identity.getSignInClient(appContext)
-                    .signOut()
-                    .asDeferred()
-                    .await()
-            } catch (e: Exception) {
-                AppLogger.e(TAG, "Failed to disconnect Google Sheets", e)
-            }
             googleSheetsRepository.clearSpreadsheet()
             googleSheetsRepository.clearAccountEmail()
             _googleSheetsState.value = GoogleSheetsState.NotConnected
