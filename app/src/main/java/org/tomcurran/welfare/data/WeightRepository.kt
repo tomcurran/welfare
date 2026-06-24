@@ -22,6 +22,8 @@ import androidx.work.WorkManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.Instant
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
@@ -49,7 +51,9 @@ class WeightRepository @Inject constructor(
         dataStore.edit { it.remove(KEY_HEALTH_CONNECT_CHANGES_TOKEN) }
     }
 
-    suspend fun sync() {
+    private val syncMutex = Mutex()
+
+    suspend fun sync() = syncMutex.withLock {
         val token = dataStore.data.first()[KEY_HEALTH_CONNECT_CHANGES_TOKEN]
         val newToken = if (token == null) {
             fullSync()
