@@ -5,7 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 @Database(entities = [WeightEntity::class], version = 2, exportSchema = false)
 abstract class WeightDatabase : RoomDatabase() {
@@ -20,8 +23,9 @@ abstract class WeightDatabase : RoomDatabase() {
         ): WeightDatabase = Room.databaseBuilder(context, WeightDatabase::class.java, DATABASE_NAME)
             .fallbackToDestructiveMigration(dropAllTables = true)
             .addCallback(object : Callback() {
+                private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
                 override fun onDestructiveMigration(db: SupportSQLiteDatabase) {
-                    runBlocking { repository.get().resetSync() }
+                    scope.launch { repository.get().resetSync() }
                 }
             }).build()
     }
