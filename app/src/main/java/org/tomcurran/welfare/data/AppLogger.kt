@@ -6,7 +6,9 @@ import android.security.keystore.KeyProperties
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,8 @@ object AppLogger {
     private lateinit var appContext: Context
     private val logEntries = ArrayDeque<LogEntry>()
     private val scope = CoroutineScope(Dispatchers.IO.limitedParallelism(1) + SupervisorJob())
+    private var pendingSave: Job? = null
+    private const val SAVE_DEBOUNCE_MS = 1000L
 
     private val _entriesFlow = MutableStateFlow<List<LogEntry>>(emptyList())
     val entriesFlow: StateFlow<List<LogEntry>> = _entriesFlow.asStateFlow()
@@ -70,13 +74,18 @@ object AppLogger {
             logEntries.addLast(entry)
             if (logEntries.size > MAX_ENTRIES) logEntries.removeFirst()
             _entriesFlow.value = logEntries.reversed()
-            saveToFile()
+            pendingSave?.cancel()
+            pendingSave = scope.launch {
+                delay(SAVE_DEBOUNCE_MS)
+                saveToFile()
+            }
         }
     }
 
     fun clearEntries() {
         if (!BuildConfig.DEBUG) return
         scope.launch {
+            pendingSave?.cancel()
             logEntries.clear()
             _entriesFlow.value = emptyList()
             saveToFile()
