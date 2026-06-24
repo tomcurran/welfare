@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -56,6 +58,7 @@ class WeightViewModel @Inject constructor(
     private val _permissionChecked = MutableStateFlow(false)
 
     private val dataState = repository.entries()
+        .conflate()
         .map<_, WeightUiState> { entities ->
             WeightUiState.Success(
                 entities.map { entity ->
@@ -70,6 +73,7 @@ class WeightViewModel @Inject constructor(
                 }
             )
         }
+        .distinctUntilChanged()
         .catch { e -> emit(WeightUiState.Error(e.message ?: "Unknown error")) }
 
     val uiState: StateFlow<WeightUiState> = combine(
