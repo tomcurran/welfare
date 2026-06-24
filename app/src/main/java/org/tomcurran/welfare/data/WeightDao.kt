@@ -12,9 +12,6 @@ abstract class WeightDao {
     abstract fun getAllByTimeDesc(): Flow<List<WeightEntity>>
 
     @Upsert
-    abstract suspend fun upsert(entity: WeightEntity)
-
-    @Upsert
     abstract suspend fun upsertAll(entities: List<WeightEntity>)
 
     @Query("DELETE FROM weight")
