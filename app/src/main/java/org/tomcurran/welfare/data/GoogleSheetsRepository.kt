@@ -94,12 +94,14 @@ class GoogleSheetsRepository @Inject constructor(
             }
         }
 
-    private suspend fun getFirstSheetName(sheets: Sheets, spreadsheetId: String): String =
+    private suspend fun fetchAndCacheFirstSheetName(sheets: Sheets, spreadsheetId: String): String =
         withContext(Dispatchers.IO) {
             val spreadsheet = sheets.spreadsheets().get(spreadsheetId)
                 .setFields("sheets.properties.title")
                 .execute()
-            spreadsheet.sheets?.firstOrNull()?.properties?.title ?: "Sheet1"
+            val name = spreadsheet.sheets?.firstOrNull()?.properties?.title ?: "Sheet1"
+            dataStore.edit { it[KEY_FIRST_SHEET_NAME] = name }
+            name
         }
 
     suspend fun syncWeightsToSheet(entries: List<WeightEntity>) = withContext(Dispatchers.IO) {
@@ -108,7 +110,8 @@ class GoogleSheetsRepository @Inject constructor(
         try {
             val sheets = buildSheetsService(accessToken)
             val zoneId = ZoneId.systemDefault()
-            val range = getFirstSheetName(sheets, spreadsheetId)
+            val range = dataStore.data.first()[KEY_FIRST_SHEET_NAME]
+                ?: fetchAndCacheFirstSheetName(sheets, spreadsheetId)
 
             data class WeightKey(val date: LocalDate, val weightCentis: Long)
             fun Double.toWeightCentis() = (this * 100).toLong()
@@ -221,6 +224,7 @@ class GoogleSheetsRepository @Inject constructor(
         dataStore.edit { prefs ->
             prefs.remove(KEY_SPREADSHEET_ID)
             prefs.remove(KEY_SPREADSHEET_NAME)
+            prefs.remove(KEY_FIRST_SHEET_NAME)
         }
     }
 
@@ -240,6 +244,7 @@ class GoogleSheetsRepository @Inject constructor(
         private val TAG: String = GoogleSheetsRepository::class.java.simpleName
         private val KEY_SPREADSHEET_ID = stringPreferencesKey("google_sheets_spreadsheet_id")
         private val KEY_SPREADSHEET_NAME = stringPreferencesKey("google_sheets_spreadsheet_name")
+        private val KEY_FIRST_SHEET_NAME = stringPreferencesKey("google_sheets_first_sheet_name")
         private val KEY_GOOGLE_ACCOUNT_EMAIL = stringPreferencesKey("google_account_email")
         const val SCOPE_DRIVE_METADATA_READONLY = "https://www.googleapis.com/auth/drive.metadata.readonly"
         const val MIME_TYPE_GOOGLE_SPREADSHEET = "application/vnd.google-apps.spreadsheet"
