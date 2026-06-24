@@ -67,7 +67,7 @@ class SettingsViewModel @Inject constructor(
                 val authorizationResult = googleSheetsAuthorize()
                 processAuthorizationResult(authorizationResult)
             } catch (e: Exception) {
-                AppLogger.d(TAG, "Google Sheets auth check failed")
+                AppLogger.w(TAG, "Google Sheets auth check failed", e)
                 _googleSheetsState.value = GoogleSheetsState.NotConnected
             }
         }
