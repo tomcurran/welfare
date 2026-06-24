@@ -160,6 +160,7 @@ class GoogleSheetsRepository @Inject constructor(
 
             AppLogger.d(TAG, "Appended ${newRows.size} new weight entries to Google Sheets")
         } catch (e: Exception) {
+            if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.e(TAG, "Failed to sync weights to Google Sheets", e)
         }
     }

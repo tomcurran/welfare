@@ -25,7 +25,10 @@ class SyncWorker @AssistedInject constructor(
             AppLogger.e(TAG, "Weight sync failed permanently due to security exception (permissions revoked?)", e)
             Result.failure()
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Weight sync failed", e)
+            if (e is kotlinx.coroutines.CancellationException) {
+                AppLogger.d(TAG, "Weight sync cancelled")
+                throw e
+            }
             AppLogger.e(TAG, "Weight sync failed (attempt ${attempt + 1})", e)
             Result.retry()
         }

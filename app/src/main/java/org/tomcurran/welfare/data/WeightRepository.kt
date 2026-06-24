@@ -57,6 +57,7 @@ class WeightRepository @Inject constructor(
             try {
                 incrementalSync(token)
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.w(TAG, "Incremental sync failed, falling back to full sync", e)
                 resetSync()
                 fullSync()
