@@ -78,7 +78,7 @@ class WeightRepository @Inject constructor(
         val now = Instant.now()
         val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
         var pageToken: String? = null
-        dao.deleteAll()
+        val fetched = mutableListOf<WeightEntity>()
         do {
             val response = healthConnectClient.readRecords(
                 ReadRecordsRequest(
@@ -87,15 +87,16 @@ class WeightRepository @Inject constructor(
                     pageToken = pageToken,
                 )
             )
-            dao.upsertAll(response.records.map { record ->
+            response.records.mapTo(fetched) { record ->
                 WeightEntity(
                     healthConnectId = record.metadata.id,
                     weight = record.weight.inKilograms,
                     time = record.time.toEpochMilli(),
                 )
-            })
+            }
             pageToken = response.pageToken
         } while (pageToken != null)
+        dao.replaceAll(fetched)
         return healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )

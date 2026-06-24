@@ -2,23 +2,30 @@ package org.tomcurran.welfare.data
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface WeightDao {
+abstract class WeightDao {
     @Query("SELECT * FROM weight ORDER BY time DESC")
-    fun getAllByTimeDesc(): Flow<List<WeightEntity>>
+    abstract fun getAllByTimeDesc(): Flow<List<WeightEntity>>
 
     @Upsert
-    suspend fun upsert(entity: WeightEntity)
+    abstract suspend fun upsert(entity: WeightEntity)
 
     @Upsert
-    suspend fun upsertAll(entities: List<WeightEntity>)
+    abstract suspend fun upsertAll(entities: List<WeightEntity>)
 
     @Query("DELETE FROM weight")
-    suspend fun deleteAll()
+    abstract suspend fun deleteAll()
+
+    @Transaction
+    open suspend fun replaceAll(entities: List<WeightEntity>) {
+        deleteAll()
+        upsertAll(entities)
+    }
 
     @Query("DELETE FROM weight WHERE healthConnectId = :id")
-    suspend fun deleteByHealthConnectId(id: String)
+    abstract suspend fun deleteByHealthConnectId(id: String)
 }
