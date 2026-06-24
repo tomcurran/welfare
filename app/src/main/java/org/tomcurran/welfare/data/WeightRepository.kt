@@ -63,11 +63,7 @@ class WeightRepository @Inject constructor(
                 fullSync()
             }
         }
-        try {
-            googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
-        } catch (e: Exception) {
-            AppLogger.w(TAG, "Google Sheets sync failed", e)
-        }
+        googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
     }
 
     private suspend fun fullSync() {

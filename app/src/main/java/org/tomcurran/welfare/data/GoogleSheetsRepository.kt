@@ -162,6 +162,7 @@ class GoogleSheetsRepository @Inject constructor(
         } catch (e: Exception) {
             if (e is kotlinx.coroutines.CancellationException) throw e
             AppLogger.e(TAG, "Failed to sync weights to Google Sheets", e)
+            throw e
         }
     }
 
