@@ -19,12 +19,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.asDeferred
 import kotlinx.coroutines.withContext
+import com.google.api.client.http.GenericUrl
+import com.google.api.client.http.javanet.NetHttpTransport
 import org.json.JSONObject
 import org.tomcurran.welfare.data.AppLogger
 import org.tomcurran.welfare.data.GoogleSheetsRepository
 import org.tomcurran.welfare.data.WeightRepository
-import java.net.HttpURLConnection
-import java.net.URL
 import javax.inject.Inject
 
 sealed interface GoogleSheetsState {
@@ -95,23 +95,18 @@ class SettingsViewModel @Inject constructor(
 
     private suspend fun fetchGoogleEmail(accessToken: String): String? =
         withContext(Dispatchers.IO) {
-            val connection = URL("https://www.googleapis.com/oauth2/v3/userinfo").openConnection() as HttpURLConnection
             try {
-                connection.setRequestProperty("Authorization", "Bearer $accessToken")
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-                connection.connect()
-                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                    AppLogger.w(TAG, "Userinfo request failed: HTTP ${connection.responseCode}")
-                    return@withContext null
-                }
-                val response = connection.inputStream.bufferedReader().use { it.readText() }
-                JSONObject(response).optString("email").takeIf { it.isNotEmpty() }
+                val request = NetHttpTransport().createRequestFactory()
+                    .buildGetRequest(GenericUrl("https://www.googleapis.com/oauth2/v3/userinfo"))
+                    .apply {
+                        headers.authorization = "Bearer $accessToken"
+                        connectTimeout = 5000
+                        readTimeout = 5000
+                    }
+                JSONObject(request.execute().parseAsString()).optString("email").takeIf { it.isNotEmpty() }
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Failed to fetch Google email", e)
                 null
-            } finally {
-                connection.disconnect()
             }
         }
 
