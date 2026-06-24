@@ -99,7 +99,7 @@ class GoogleSheetsRepository @Inject constructor(
             val spreadsheet = sheets.spreadsheets().get(spreadsheetId)
                 .setFields("sheets.properties.title")
                 .execute()
-            spreadsheet.getSheets()?.firstOrNull()?.getProperties()?.getTitle() ?: "Sheet1"
+            spreadsheet.sheets?.firstOrNull()?.properties?.title ?: "Sheet1"
         }
 
     suspend fun syncWeightsToSheet(entries: List<WeightEntity>) = withContext(Dispatchers.IO) {
@@ -108,8 +108,7 @@ class GoogleSheetsRepository @Inject constructor(
         try {
             val sheets = buildSheetsService(accessToken)
             val zoneId = ZoneId.systemDefault()
-            val sheetName = getFirstSheetName(sheets, spreadsheetId)
-            val range = sheetName
+            val range = getFirstSheetName(sheets, spreadsheetId)
 
             data class WeightKey(val date: LocalDate, val weightCentis: Long)
             fun Double.toWeightCentis() = (this * 100).toLong()
