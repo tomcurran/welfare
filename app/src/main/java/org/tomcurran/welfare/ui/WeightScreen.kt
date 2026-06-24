@@ -87,6 +87,8 @@ fun WeightScreenContent(
                                 contentDescription = stringResource(R.string.refresh),
                             )
                         }
+                    }
+                    if (uiState is WeightUiState.Success || uiState is WeightUiState.Error) {
                         IconButton(onClick = onNavigateToSettings) {
                             Icon(
                                 imageVector = Icons.Default.Settings,
@@ -155,7 +157,12 @@ fun WeightScreenContent(
                         .padding(innerPadding),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(stringResource(R.string.error_format, state.message))
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(stringResource(R.string.error_format, state.message))
+                        Button(onClick = onRefresh) {
+                            Text(stringResource(R.string.refresh))
+                        }
+                    }
                 }
             }
         }
