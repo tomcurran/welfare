@@ -68,6 +68,7 @@ class SettingsViewModel @Inject constructor(
                 processAuthorizationResult(authorizationResult)
             } catch (e: Exception) {
                 AppLogger.d(TAG, "Google Sheets auth check failed")
+                _googleSheetsState.value = GoogleSheetsState.NotConnected
             }
         }
     }
