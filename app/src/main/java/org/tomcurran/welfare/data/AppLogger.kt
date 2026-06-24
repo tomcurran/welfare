@@ -120,7 +120,7 @@ object AppLogger {
             val file = File(appContext.filesDir, FILE_NAME)
             if (!file.exists()) return
             val decrypted = decrypt(file.readBytes())
-            val loaded = Json.decodeFromString<List<LogEntry>>(decrypted.toString(Charsets.UTF_8))
+            val loaded = Json.decodeFromString<List<LogEntry>>(String(decrypted, Charsets.UTF_8))
             logEntries.clear()
             logEntries.addAll(loaded.takeLast(MAX_ENTRIES))
             _entriesFlow.value = logEntries.reversed()
