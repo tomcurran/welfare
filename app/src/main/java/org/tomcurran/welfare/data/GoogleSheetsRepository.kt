@@ -79,7 +79,7 @@ class GoogleSheetsRepository @Inject constructor(
             val accessToken = getAccessToken() ?: return@withContext null
             try {
                 val drive = buildDriveService(accessToken)
-                val escapedName = displayName.replace("'", "\\'")
+                val escapedName = displayName.replace("\\", "\\\\").replace("'", "\\'")
                 val result = drive.files().list()
                     .setQ("mimeType='application/vnd.google-apps.spreadsheet' and name='$escapedName'")
                     .setFields("files(id, name)")
