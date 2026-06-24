@@ -25,7 +25,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeParseException
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -112,12 +111,15 @@ class GoogleSheetsRepository @Inject constructor(
             val sheetName = getFirstSheetName(sheets, spreadsheetId)
             val range = sheetName
 
+            data class WeightKey(val date: LocalDate, val weightCentis: Long)
+            fun Double.toWeightCentis() = (this * 100).toLong()
+
             // Deduplicate entries: keep unique weights per day
             val deduped = entries
                 .sortedBy { it.time }
-                .groupBy { Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate().toString() }
-                .flatMap { (dateStr, dayEntries) ->
-                    dayEntries.distinctBy { it.weight }.map { dateStr to it }
+                .groupBy { Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate() }
+                .flatMap { (date, dayEntries) ->
+                    dayEntries.distinctBy { it.weight.toWeightCentis() }.map { date to it }
                 }
 
             fun parseSheetWeight(value: Any?): Double? {
@@ -127,18 +129,18 @@ class GoogleSheetsRepository @Inject constructor(
                 return cleanStr.toDoubleOrNull()
             }
 
-            fun normalizeSheetDate(value: Any?): String? {
+            fun normalizeSheetDate(value: Any?): LocalDate? {
                 val str = value?.toString() ?: return null
                 // Try parsing as ISO date (which is what we write)
                 try {
-                    return LocalDate.parse(str).toString()
+                    return LocalDate.parse(str)
                 } catch (_: DateTimeParseException) { }
                 // Google Sheets converts USER_ENTERED ISO dates to date serial numbers
                 // (days since Dec 30, 1899) when read back with UNFORMATTED_VALUE
                 str.toDoubleOrNull()?.let { serial ->
-                    return LocalDate.of(1899, 12, 30).plusDays(serial.toLong()).toString()
+                    return LocalDate.of(1899, 12, 30).plusDays(serial.toLong())
                 }
-                return str
+                return null
             }
 
             // Read existing rows from the sheet
@@ -151,14 +153,18 @@ class GoogleSheetsRepository @Inject constructor(
             // Collect existing date-weight pairs (skip header row)
             val existingKeys = existing.drop(1)
                 .filter { it.size >= 2 }
-                .map { "${normalizeSheetDate(it[0])}|${"%.2f".format(Locale.US, parseSheetWeight(it[1]) ?: 0.0)}" }
+                .mapNotNull { row ->
+                    val date = normalizeSheetDate(row[0]) ?: return@mapNotNull null
+                    val weight = parseSheetWeight(row[1]) ?: return@mapNotNull null
+                    WeightKey(date, weight.toWeightCentis())
+                }
                 .toSet()
 
             // Build new rows that aren't already in the sheet
             val newRows = deduped
                 .sortedBy { it.first }
-                .filter { (dateStr, entry) -> "${dateStr}|${"%.2f".format(Locale.US, entry.weight)}" !in existingKeys }
-                .map { (dateStr, entry) -> listOf<Any>(dateStr, entry.weight) }
+                .filter { (date, entry) -> WeightKey(date, entry.weight.toWeightCentis()) !in existingKeys }
+                .map { (date, entry) -> listOf<Any>(date.toString(), entry.weight) }
 
             if (newRows.isEmpty()) {
                 AppLogger.d(TAG, "No new weight entries to sync")
