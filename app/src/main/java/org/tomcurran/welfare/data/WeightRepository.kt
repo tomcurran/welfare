@@ -47,7 +47,7 @@ class WeightRepository @Inject constructor(
         dataStore.edit { it[KEY_BACKGROUND_SYNC_ENABLED] = enabled }
     }
 
-    suspend fun resetSync() {
+    suspend fun resetSync() = syncMutex.withLock {
         dataStore.edit { it.remove(KEY_HEALTH_CONNECT_CHANGES_TOKEN) }
     }
 
