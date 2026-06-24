@@ -10,7 +10,6 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import org.tomcurran.welfare.ui.WeightViewModel
 import javax.inject.Singleton
 
 private val Context.dataStore by preferencesDataStore(name = "welfare_prefs")
@@ -44,5 +43,5 @@ object DataModule {
             null
         }
 
-    private val TAG: String = WeightViewModel::class.java.simpleName
+    private val TAG: String = DataModule::class.java.simpleName
 }
