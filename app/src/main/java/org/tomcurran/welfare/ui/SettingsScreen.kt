@@ -99,10 +99,10 @@ fun SettingsScreen(
         }
     }
 
-    val googleSheetsSubtitle = when (googleSheetsState) {
+    val googleSheetsSubtitle = when (val state = googleSheetsState) {
         is GoogleSheetsState.Checking -> stringResource(R.string.google_sheets_checking)
         is GoogleSheetsState.Connected ->
-            stringResource(R.string.google_sheets_connected, (googleSheetsState as GoogleSheetsState.Connected).email)
+            stringResource(R.string.google_sheets_connected, state.email)
         is GoogleSheetsState.NotConnected ->
             stringResource(R.string.google_sheets_not_connected)
     }
