@@ -98,42 +98,33 @@ class WeightViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val granted = client.permissionController.getGrantedPermissions()
-            if (requiredPermissions.all { it in granted }) {
-                _permissionDenied.value = false
-                try {
-                    repository.sync()
-                } catch (e: SecurityException) {
-                    AppLogger.e(TAG, "Sync failed: permissions revoked", e)
-                    _permissionDenied.value = true
-                } catch (e: Exception) {
-                    AppLogger.e(TAG, "Sync failed", e)
-                }
-                scheduleBackgroundSync()
-            } else {
-                _permissionDenied.value = true
-            }
+            syncIfPermissionsGranted(granted)
             _permissionChecked.value = true
         }
     }
 
     fun onPermissionResult(granted: Set<String>) {
+        viewModelScope.launch {
+            syncIfPermissionsGranted(granted)
+            _permissionChecked.value = true
+        }
+    }
+
+    private suspend fun syncIfPermissionsGranted(granted: Set<String>) {
         if (requiredPermissions.all { it in granted }) {
             _permissionDenied.value = false
-            viewModelScope.launch {
-                try {
-                    repository.sync()
-                } catch (e: SecurityException) {
-                    AppLogger.e(TAG, "Sync failed: permissions revoked", e)
-                    _permissionDenied.value = true
-                } catch (e: Exception) {
-                    AppLogger.e(TAG, "Sync failed", e)
-                }
+            try {
+                repository.sync()
+            } catch (e: SecurityException) {
+                AppLogger.e(TAG, "Sync failed: permissions revoked", e)
+                _permissionDenied.value = true
+            } catch (e: Exception) {
+                AppLogger.e(TAG, "Sync failed", e)
             }
             scheduleBackgroundSync()
         } else {
             _permissionDenied.value = true
         }
-        _permissionChecked.value = true
     }
 
     private fun scheduleBackgroundSync() {
