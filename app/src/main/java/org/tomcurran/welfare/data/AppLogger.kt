@@ -69,7 +69,7 @@ object AppLogger {
         scope.launch {
             logEntries.addLast(entry)
             if (logEntries.size > MAX_ENTRIES) logEntries.removeFirst()
-            _entriesFlow.value = logEntries.toList()
+            _entriesFlow.value = logEntries.reversed()
             saveToFile()
         }
     }
@@ -123,7 +123,7 @@ object AppLogger {
             val loaded = Json.decodeFromString<List<LogEntry>>(decrypted.toString(Charsets.UTF_8))
             logEntries.clear()
             logEntries.addAll(loaded.takeLast(MAX_ENTRIES))
-            _entriesFlow.value = logEntries.toList()
+            _entriesFlow.value = logEntries.reversed()
         } catch (e: Exception) {
             Log.w("AppLogger", "Failed to load log entries from file", e)
         }

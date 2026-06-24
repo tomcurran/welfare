@@ -60,7 +60,7 @@ fun LogsScreen(
         },
     ) { innerPadding ->
         LazyColumn(modifier = Modifier.padding(innerPadding)) {
-            items(entries.reversed()) { entry ->
+            items(entries) { entry ->
                 LogEntryRow(entry)
                 HorizontalDivider(thickness = 0.5.dp)
             }
