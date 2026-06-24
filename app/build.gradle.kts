@@ -8,14 +8,12 @@ plugins {
 
 android {
     namespace = "org.tomcurran.welfare"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.tomcurran.welfare"
         minSdk = 35
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
