@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -109,22 +110,30 @@ class GoogleSheetsRepository @Inject constructor(
                     dayEntries.distinctBy { it.weight }.map { date to it }
                 }
 
+            fun parseSheetWeight(value: Any?): Double? {
+                if (value is Number) return value.toDouble()
+                val str = value?.toString() ?: return null
+                val cleanStr = str.replace(Regex("[^0-9.,]"), "").replace(',', '.')
+                return cleanStr.toDoubleOrNull()
+            }
+
             // Read existing rows from the sheet
             val existing = sheets.spreadsheets().values()
                 .get(spreadsheetId, range)
+                .setValueRenderOption("UNFORMATTED_VALUE")
                 .execute()
                 .getValues().orEmpty()
 
             // Collect existing date-weight pairs (skip header row)
             val existingKeys = existing.drop(1)
                 .filter { it.size >= 2 }
-                .map { "${it[0]}|${"%.2f".format(it[1].toString().toDoubleOrNull() ?: 0.0)}" }
+                .map { "${it[0]}|${"%.2f".format(Locale.US, parseSheetWeight(it[1]) ?: 0.0)}" }
                 .toSet()
 
             // Build new rows that aren't already in the sheet
             val newRows = deduped
                 .sortedBy { it.first }
-                .filter { (date, entry) -> "${date}|${"%.2f".format(entry.weight)}" !in existingKeys }
+                .filter { (date, entry) -> "${date}|${"%.2f".format(Locale.US, entry.weight)}" !in existingKeys }
                 .map { (date, entry) -> listOf<Any>(date, entry.weight) }
 
             if (newRows.isEmpty()) {
