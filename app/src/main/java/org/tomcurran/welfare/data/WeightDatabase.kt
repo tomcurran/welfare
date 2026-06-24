@@ -10,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-@Database(entities = [WeightEntity::class], version = 2, exportSchema = false)
+@Database(entities = [WeightEntity::class], version = 1, exportSchema = true)
 abstract class WeightDatabase : RoomDatabase() {
     abstract fun weightDao(): WeightDao
 
