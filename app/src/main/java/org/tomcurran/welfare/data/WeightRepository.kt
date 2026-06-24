@@ -72,11 +72,11 @@ class WeightRepository @Inject constructor(
                 fullSync()
             }
         }
-        if (result.hasChanges) {
-            googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
-        }
         if (result.newToken != null) {
             dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = result.newToken }
+        }
+        if (result.hasChanges) {
+            googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
         }
     }
 
