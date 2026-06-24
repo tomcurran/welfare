@@ -51,7 +51,7 @@ class WeightRepository @Inject constructor(
 
     suspend fun sync() {
         val token = dataStore.data.first()[KEY_HEALTH_CONNECT_CHANGES_TOKEN]
-        if (token == null) {
+        val newToken = if (token == null) {
             fullSync()
         } else {
             try {
@@ -64,11 +64,14 @@ class WeightRepository @Inject constructor(
             }
         }
         googleSheetsRepository.syncWeightsToSheet(dao.getAllByTimeDesc().first())
+        if (newToken != null) {
+            dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = newToken }
+        }
     }
 
-    private suspend fun fullSync() {
+    private suspend fun fullSync(): String? {
         if (healthConnectClient == null)
-            return
+            return null
 
         val now = Instant.now()
         val start = now.minus(FULL_SYNC_DAYS, ChronoUnit.DAYS)
@@ -91,15 +94,14 @@ class WeightRepository @Inject constructor(
             })
             pageToken = response.pageToken
         } while (pageToken != null)
-        val newToken = healthConnectClient.getChangesToken(
+        return healthConnectClient.getChangesToken(
             ChangesTokenRequest(recordTypes = setOf(WeightRecord::class))
         )
-        dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = newToken }
     }
 
-    private suspend fun incrementalSync(token: String) {
+    private suspend fun incrementalSync(token: String): String? {
         if (healthConnectClient == null)
-            return
+            return null
 
         var currentToken = token
         do {
@@ -129,7 +131,7 @@ class WeightRepository @Inject constructor(
             }
             currentToken = changesResponse.nextChangesToken
         } while (changesResponse.hasMore)
-        dataStore.edit { it[KEY_HEALTH_CONNECT_CHANGES_TOKEN] = currentToken }
+        return currentToken
     }
 
     companion object {
