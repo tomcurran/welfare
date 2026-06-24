@@ -142,22 +142,32 @@ class GoogleSheetsRepository @Inject constructor(
                 return null
             }
 
-            // Read existing rows from the sheet
-            val existing = sheets.spreadsheets().values()
-                .get(spreadsheetId, range)
-                .setValueRenderOption("UNFORMATTED_VALUE")
-                .execute()
-                .getValues().orEmpty()
-
-            // Collect existing date-weight pairs (skip header row)
-            val existingKeys = existing.drop(1)
-                .filter { it.size >= 2 }
-                .mapNotNull { row ->
-                    val date = normalizeSheetDate(row[0]) ?: return@mapNotNull null
-                    val weight = parseSheetWeight(row[1]) ?: return@mapNotNull null
-                    WeightKey(date, weight.toWeightCentis())
-                }
-                .toSet()
+            // Read existing rows from the sheet in chunks — the Sheets API has no
+            // page token mechanism for values.get, so we loop over explicit row ranges.
+            val existingKeys = mutableSetOf<WeightKey>()
+            var rowOffset = 1 // 1-based; row 1 is the header, data starts at row 2
+            var sheetIsEmpty = true
+            while (true) {
+                val chunkRange = "$range!A$rowOffset:B${rowOffset + READ_CHUNK_SIZE - 1}"
+                val rows = sheets.spreadsheets().values()
+                    .get(spreadsheetId, chunkRange)
+                    .setValueRenderOption("UNFORMATTED_VALUE")
+                    .execute()
+                    .getValues().orEmpty()
+                if (rows.isEmpty()) break
+                sheetIsEmpty = sheetIsEmpty && rowOffset == 1 && rows.isEmpty()
+                val dataRows = if (rowOffset == 1) rows.drop(1) else rows // skip header on first chunk
+                dataRows
+                    .filter { it.size >= 2 }
+                    .mapNotNullTo(existingKeys) { row ->
+                        val date = normalizeSheetDate(row[0]) ?: return@mapNotNullTo null
+                        val weight = parseSheetWeight(row[1]) ?: return@mapNotNullTo null
+                        WeightKey(date, weight.toWeightCentis())
+                    }
+                if (rows.size < READ_CHUNK_SIZE) break
+                rowOffset += READ_CHUNK_SIZE
+            }
+            val sheetHasNoRows = rowOffset == 1 && existingKeys.isEmpty()
 
             // Build new rows that aren't already in the sheet
             val newRows = deduped
@@ -171,7 +181,7 @@ class GoogleSheetsRepository @Inject constructor(
             }
 
             // Ensure header exists
-            if (existing.isEmpty()) {
+            if (sheetHasNoRows) {
                 val header = ValueRange().setValues(listOf(listOf<Any>("Date", "Weight (kg)")))
                 sheets.spreadsheets().values()
                     .update(spreadsheetId, "$range!A1", header)
@@ -232,5 +242,6 @@ class GoogleSheetsRepository @Inject constructor(
         private val KEY_GOOGLE_ACCOUNT_EMAIL = stringPreferencesKey("google_account_email")
         const val SCOPE_DRIVE_METADATA_READONLY = "https://www.googleapis.com/auth/drive.metadata.readonly"
         const val MIME_TYPE_GOOGLE_SPREADSHEET = "application/vnd.google-apps.spreadsheet"
+        private const val READ_CHUNK_SIZE = 1000
     }
 }
