@@ -21,6 +21,9 @@ class SyncWorker @AssistedInject constructor(
             repository.sync()
             AppLogger.d(TAG, "Weight sync completed")
             Result.success()
+        } catch (e: SecurityException) {
+            AppLogger.e(TAG, "Weight sync failed permanently due to security exception (permissions revoked?)", e)
+            Result.failure()
         } catch (e: Exception) {
             AppLogger.e(TAG, "Weight sync failed", e)
             AppLogger.e(TAG, "Weight sync failed (attempt ${attempt + 1})", e)
