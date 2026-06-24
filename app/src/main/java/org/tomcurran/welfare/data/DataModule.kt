@@ -39,7 +39,7 @@ object DataModule {
         try {
             HealthConnectClient.getOrCreate(context)
         } catch (e: Exception) {
-            AppLogger.e(TAG, "Health Connect not available", e)
+            AppLogger.w(TAG, "Health Connect not available: ${e.message}")
             null
         }
 
