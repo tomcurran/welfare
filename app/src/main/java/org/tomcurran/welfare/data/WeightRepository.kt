@@ -47,7 +47,9 @@ class WeightRepository @Inject constructor(
         dataStore.edit { it[KEY_BACKGROUND_SYNC_ENABLED] = enabled }
     }
 
-    suspend fun resetSync() = syncMutex.withLock {
+    suspend fun resetSync() = syncMutex.withLock { resetSyncWithoutLock() }
+
+    private suspend fun resetSyncWithoutLock() {
         dataStore.edit { it.remove(KEY_HEALTH_CONNECT_CHANGES_TOKEN) }
     }
 
@@ -67,7 +69,7 @@ class WeightRepository @Inject constructor(
             } catch (e: Exception) {
                 if (e is kotlinx.coroutines.CancellationException) throw e
                 AppLogger.w(TAG, "Incremental sync failed, falling back to full sync", e)
-                resetSync()
+                resetSyncWithoutLock()
                 fullSync()
             }
         }
