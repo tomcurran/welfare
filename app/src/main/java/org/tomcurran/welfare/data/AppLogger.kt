@@ -73,10 +73,10 @@ object AppLogger {
         scope.launch {
             logEntries.addLast(entry)
             if (logEntries.size > MAX_ENTRIES) logEntries.removeFirst()
-            _entriesFlow.value = logEntries.reversed()
             pendingSave?.cancel()
             pendingSave = scope.launch {
                 delay(SAVE_DEBOUNCE_MS)
+                _entriesFlow.value = logEntries.reversed()
                 saveToFile()
             }
         }
