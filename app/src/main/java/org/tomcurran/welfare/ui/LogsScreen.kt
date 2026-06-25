@@ -33,6 +33,8 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+private val LOG_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+
 @Composable
 fun LogsScreen(
     viewModel: LogsViewModel,
@@ -89,10 +91,9 @@ private fun LogEntryRow(entry: AppLogger.LogEntry) {
         "W" -> Color(0xFFFFA000)
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
     }
-    val timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
     val time = Instant.ofEpochMilli(entry.timestamp)
         .atZone(ZoneId.systemDefault())
-        .format(timeFormatter)
+        .format(LOG_TIME_FORMATTER)
 
     Column(
         modifier = Modifier
