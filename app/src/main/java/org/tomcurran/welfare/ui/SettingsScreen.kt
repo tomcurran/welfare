@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -115,6 +117,7 @@ fun SettingsScreen(
         backgroundSyncEnabled = backgroundSyncEnabled,
         onBackgroundSyncChange = { viewModel.setBackgroundSyncEnabled(it) },
         googleSheetsConnected = googleSheetsState is GoogleSheetsState.Connected,
+        googleSheetsChecking = googleSheetsState is GoogleSheetsState.Checking,
         googleSheetsSubtitle = googleSheetsSubtitle,
         onGoogleSheetsChange = { enabled ->
             if (enabled) {
@@ -142,6 +145,7 @@ fun SettingsScreenContent(
     backgroundSyncEnabled: Boolean,
     onBackgroundSyncChange: (Boolean) -> Unit,
     googleSheetsConnected: Boolean,
+    googleSheetsChecking: Boolean,
     googleSheetsSubtitle: String?,
     onGoogleSheetsChange: (Boolean) -> Unit,
     selectedSpreadsheetName: String?,
@@ -175,6 +179,8 @@ fun SettingsScreenContent(
                 title = stringResource(R.string.google_sheets),
                 subtitle = googleSheetsSubtitle,
                 checked = googleSheetsConnected,
+                enabled = !googleSheetsChecking,
+                loading = googleSheetsChecking,
                 onCheckedChange = onGoogleSheetsChange,
             )
             if (googleSheetsConnected) {
@@ -207,6 +213,8 @@ private fun SwitchPreference(
     title: String,
     subtitle: String? = null,
     checked: Boolean,
+    enabled: Boolean = true,
+    loading: Boolean = false,
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
@@ -214,6 +222,7 @@ private fun SwitchPreference(
             .fillMaxWidth()
             .toggleable(
                 value = checked,
+                enabled = enabled && !loading,
                 role = Role.Switch,
                 onValueChange = onCheckedChange,
             )
@@ -234,10 +243,18 @@ private fun SwitchPreference(
                 )
             }
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = null,
-        )
+        if (loading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                strokeWidth = 2.dp,
+            )
+        } else {
+            Switch(
+                checked = checked,
+                enabled = enabled,
+                onCheckedChange = null,
+            )
+        }
     }
 }
 
@@ -280,7 +297,28 @@ fun SettingsScreenDisconnectedPreview() {
             backgroundSyncEnabled = true,
             onBackgroundSyncChange = {},
             googleSheetsConnected = false,
+            googleSheetsChecking = false,
             googleSheetsSubtitle = "Not connected",
+            onGoogleSheetsChange = {},
+            selectedSpreadsheetName = null,
+            onSpreadsheetClick = {},
+            onResetSyncClick = {},
+            onViewLogsClick = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun SettingsScreenCheckingPreview() {
+    WelfareTheme {
+        SettingsScreenContent(
+            onBack = {},
+            backgroundSyncEnabled = true,
+            onBackgroundSyncChange = {},
+            googleSheetsConnected = false,
+            googleSheetsChecking = true,
+            googleSheetsSubtitle = "Checking…",
             onGoogleSheetsChange = {},
             selectedSpreadsheetName = null,
             onSpreadsheetClick = {},
@@ -299,6 +337,7 @@ fun SettingsScreenConnectedPreview() {
             backgroundSyncEnabled = true,
             onBackgroundSyncChange = {},
             googleSheetsConnected = true,
+            googleSheetsChecking = false,
             googleSheetsSubtitle = "Connected: user@gmail.com",
             onGoogleSheetsChange = {},
             selectedSpreadsheetName = "My Weight Tracker",
