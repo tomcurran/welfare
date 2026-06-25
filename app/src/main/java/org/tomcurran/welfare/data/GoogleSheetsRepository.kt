@@ -1,6 +1,5 @@
 package org.tomcurran.welfare.data
 
-import android.accounts.Account
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -8,7 +7,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
-import com.google.android.gms.auth.GoogleAuthUtil
+import com.google.android.gms.auth.api.identity.AuthorizationRequest
+import com.google.android.gms.auth.api.identity.Identity
+import com.google.android.gms.common.api.Scope
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.drive.Drive
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.tasks.asDeferred
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
@@ -36,15 +38,22 @@ class GoogleSheetsRepository @Inject constructor(
     private val jsonFactory = GsonFactory.getDefaultInstance()
     private val httpTransport = NetHttpTransport()
 
-    private suspend fun getAccessToken(): String? = withContext(Dispatchers.IO) {
-        val email = dataStore.data.first()[KEY_GOOGLE_ACCOUNT_EMAIL] ?: return@withContext null
+    private suspend fun getAccessToken(): String? {
         try {
-            val account = Account(email, "com.google")
-            val scope = "oauth2:${SheetsScopes.SPREADSHEETS} $SCOPE_DRIVE_METADATA_READONLY"
-            GoogleAuthUtil.getToken(context, account, scope)
+            val request = AuthorizationRequest.builder()
+                .setRequestedScopes(API_SCOPES)
+                .build()
+            val result = Identity.getAuthorizationClient(context)
+                .authorize(request)
+                .asDeferred()
+                .await()
+            if (result.accessToken == null) {
+                AppLogger.w(TAG, "Access token unavailable — authorization requires user interaction")
+            }
+            return result.accessToken
         } catch (e: Exception) {
             AppLogger.e(TAG, "Failed to get access token", e)
-            null
+            return null
         }
     }
 
@@ -249,5 +258,9 @@ class GoogleSheetsRepository @Inject constructor(
         const val SCOPE_DRIVE_METADATA_READONLY = "https://www.googleapis.com/auth/drive.metadata.readonly"
         const val MIME_TYPE_GOOGLE_SPREADSHEET = "application/vnd.google-apps.spreadsheet"
         private const val READ_CHUNK_SIZE = 1000
+        val API_SCOPES = listOf(
+            Scope(SheetsScopes.SPREADSHEETS),
+            Scope(SCOPE_DRIVE_METADATA_READONLY),
+        )
     }
 }

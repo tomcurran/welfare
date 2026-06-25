@@ -163,9 +163,7 @@ class SettingsViewModel @Inject constructor(
     companion object {
         private val TAG: String = SettingsViewModel::class.java.simpleName
 
-        val GOOGLE_SHEETS_SCOPES = listOf(
-            Scope("https://www.googleapis.com/auth/spreadsheets"),
-            Scope(GoogleSheetsRepository.SCOPE_DRIVE_METADATA_READONLY),
+        val GOOGLE_SHEETS_SCOPES = GoogleSheetsRepository.API_SCOPES + listOf(
             Scope("openid"),
             Scope("email"),
         )
