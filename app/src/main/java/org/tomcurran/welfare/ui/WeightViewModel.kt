@@ -71,7 +71,7 @@ class WeightViewModel @Inject constructor(
                     )
                 }.distinctBy { entry ->
                     val day = LocalDate.ofInstant(entry.time, ZoneId.systemDefault())
-                    day to entry.weight
+                    day to Math.round(entry.weight * 100)
                 }
             )
         }
