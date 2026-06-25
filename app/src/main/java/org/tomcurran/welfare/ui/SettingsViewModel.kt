@@ -64,7 +64,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun checkGoogleSheetsAuth() {
-        if (_googleSheetsState.value is GoogleSheetsState.Connected) return
         viewModelScope.launch {
             _googleSheetsState.value = GoogleSheetsState.Checking
             try {
